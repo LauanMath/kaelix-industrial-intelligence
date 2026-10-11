@@ -1,0 +1,10 @@
+.temp/
+node_modules/
+apps/desktop/frontend/dist/
+apps/desktop/build/bin/
+.env
+.env.*
+!.env.example
+.DS_Store
+
+apps/desktop/frontend/package.json.md5
