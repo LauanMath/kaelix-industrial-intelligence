@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "gateway_id": "5ef49647-9449-4f47-8d1d-c06611c3ba81",
+  "gateway_session_id": "17162ec5-4fe1-4dac-a871-879120324a57",
+  "server_received_at": "2026-10-11T19:00:00.000Z",
+  "acknowledged": [
+    {
+      "event_seq": 1,
+      "status": "stored"
+    }
+  ]
+}

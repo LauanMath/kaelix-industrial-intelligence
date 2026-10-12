@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "O lote não foi persistido.",
+    "retryable": false,
+    "details": [
+      {
+        "path": "readings[0].rms_g",
+        "reason": "RMS não pode ser negativo."
+      }
+    ]
+  }
+}

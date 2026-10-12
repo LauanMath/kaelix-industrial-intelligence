@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kaelix:gateway:v1:heartbeat-request",
+  "title": "heartbeat-request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gateway_id",
+    "gateway_session_id",
+    "heartbeat_seq",
+    "uptime_ms",
+    "sent_at",
+    "firmware_version",
+    "health",
+    "counters"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "gateway_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "gateway_session_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "heartbeat_seq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4294967295
+    },
+    "uptime_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "sent_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "firmware_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "radio_initialized",
+        "wifi_connected",
+        "ntp_synchronized",
+        "queue_size",
+        "queue_capacity",
+        "free_heap_bytes",
+        "wifi_rssi_dbm"
+      ],
+      "properties": {
+        "radio_initialized": {
+          "type": "boolean"
+        },
+        "wifi_connected": {
+          "type": "boolean"
+        },
+        "ntp_synchronized": {
+          "type": "boolean"
+        },
+        "queue_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "queue_capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "free_heap_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "wifi_rssi_dbm": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lora_valid",
+        "lora_rejected",
+        "spi_errors",
+        "http_failed_attempts",
+        "readings_acknowledged",
+        "queue_dropped"
+      ],
+      "properties": {
+        "lora_valid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "lora_rejected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "spi_errors": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "http_failed_attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "readings_acknowledged": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "queue_dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}

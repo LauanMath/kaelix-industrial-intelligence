@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "gateway_id": "5ef49647-9449-4f47-8d1d-c06611c3ba81",
+  "gateway_session_id": "17162ec5-4fe1-4dac-a871-879120324a57",
+  "heartbeat_seq": 1,
+  "uptime_ms": 30000,
+  "sent_at": null,
+  "firmware_version": "0.1.0",
+  "health": {
+    "radio_initialized": true,
+    "wifi_connected": true,
+    "ntp_synchronized": false,
+    "queue_size": 0,
+    "queue_capacity": 64,
+    "free_heap_bytes": 80000,
+    "wifi_rssi_dbm": -60
+  },
+  "counters": {
+    "lora_valid": 1,
+    "lora_rejected": 0,
+    "spi_errors": 0,
+    "http_failed_attempts": 0,
+    "readings_acknowledged": 1,
+    "queue_dropped": 0
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kaelix:gateway:v1:readings-request",
+  "title": "readings-request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gateway_id",
+    "gateway_session_id",
+    "upload_uptime_ms",
+    "readings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "gateway_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "gateway_session_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "upload_uptime_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "readings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/reading"
+      }
+    }
+  },
+  "$defs": {
+    "reading": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_seq",
+        "gateway_rx_uptime_ms",
+        "gateway_received_at",
+        "packet_version",
+        "device_id",
+        "device_sequence",
+        "state",
+        "diag_code",
+        "rms_g",
+        "temperature_c",
+        "rssi_dbm",
+        "snr_db",
+        "packet_crc16"
+      ],
+      "properties": {
+        "event_seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "gateway_rx_uptime_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "gateway_received_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "packet_version": {
+          "const": 2
+        },
+        "device_id": {
+          "type": "string",
+          "pattern": "^[0-9A-F]{8}$"
+        },
+        "device_sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "NORMAL",
+            "ANOMALOUS",
+            "UNKNOWN"
+          ]
+        },
+        "diag_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "rms_g": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "temperature_c": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "rssi_dbm": {
+          "type": "number"
+        },
+        "snr_db": {
+          "type": "number"
+        },
+        "packet_crc16": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "NORMAL",
+                  "ANOMALOUS"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rms_g": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
