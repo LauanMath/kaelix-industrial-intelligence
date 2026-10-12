@@ -6,16 +6,44 @@ export function ChooseProfilePhoto() {
   return window['go']['main']['App']['ChooseProfilePhoto']();
 }
 
+export function ConnectAPI(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ConnectAPI'](arg1, arg2, arg3);
+}
+
+export function DisconnectAPI() {
+  return window['go']['main']['App']['DisconnectAPI']();
+}
+
 export function GetAppInfo() {
   return window['go']['main']['App']['GetAppInfo']();
+}
+
+export function GetConnection() {
+  return window['go']['main']['App']['GetConnection']();
+}
+
+export function GetDeviceHistory(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GetDeviceHistory'](arg1, arg2, arg3, arg4);
+}
+
+export function GetGatewayLogs(arg1, arg2) {
+  return window['go']['main']['App']['GetGatewayLogs'](arg1, arg2);
 }
 
 export function GetProfile() {
   return window['go']['main']['App']['GetProfile']();
 }
 
+export function GetWorkspace() {
+  return window['go']['main']['App']['GetWorkspace']();
+}
+
 export function RemoveProfilePhoto() {
   return window['go']['main']['App']['RemoveProfilePhoto']();
+}
+
+export function SaveMotor(arg1, arg2) {
+  return window['go']['main']['App']['SaveMotor'](arg1, arg2);
 }
 
 export function SaveProfile(arg1) {

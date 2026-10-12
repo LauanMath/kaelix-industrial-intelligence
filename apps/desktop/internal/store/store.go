@@ -49,7 +49,7 @@ func Open(path string) (*Store, error) {
 	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version > 2 {
+	if version > 3 {
 		return fail(errors.New("versão do banco não suportada"))
 	}
 	if version == 0 {
@@ -69,6 +69,23 @@ func Open(path string) (*Store, error) {
 	if version < 2 {
 		if _, err = db.Exec("ALTER TABLE profile ADD COLUMN avatar_data TEXT NOT NULL DEFAULT ''; PRAGMA user_version=2;"); err != nil {
 			return fail(err)
+		}
+	}
+	if version < 3 {
+		script, e := migrations.ReadFile("migrations/003_api_connection.sql")
+		if e != nil {
+			return fail(e)
+		}
+		tx, e := db.Begin()
+		if e != nil {
+			return fail(e)
+		}
+		if _, e = tx.Exec(string(script)); e != nil {
+			tx.Rollback()
+			return fail(e)
+		}
+		if e = tx.Commit(); e != nil {
+			return fail(e)
 		}
 	}
 	return &Store{db}, nil
@@ -110,4 +127,17 @@ func (s *Store) SaveAvatar(ctx context.Context, data string) (Profile, error) {
 		return Profile{}, err
 	}
 	return s.Profile(ctx)
+}
+
+// APISession stays in the private SQLite store. Passwords are never persisted.
+type APISession struct{ Endpoint, Email, Token, ExpiresAt string }
+
+func (s *Store) APISession(ctx context.Context) (APISession, error) {
+	var v APISession
+	err := s.db.QueryRowContext(ctx, `SELECT endpoint,email,token,expires_at FROM api_connection WHERE id=1`).Scan(&v.Endpoint, &v.Email, &v.Token, &v.ExpiresAt)
+	return v, err
+}
+func (s *Store) SaveAPISession(ctx context.Context, v APISession) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE api_connection SET endpoint=?,email=?,token=?,expires_at=? WHERE id=1`, v.Endpoint, v.Email, v.Token, v.ExpiresAt)
+	return err
 }

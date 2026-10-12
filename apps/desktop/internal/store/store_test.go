@@ -72,3 +72,34 @@ func TestAvatarSurvivesProfileUpdate(t *testing.T) {
 		t.Fatal("photo was not removed")
 	}
 }
+
+func TestAPISessionMigrationAndReopen(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "kaelix.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Model the previous database version while retaining its profile schema/data.
+	if _, err = db.db.Exec(`DROP TABLE api_connection; PRAGMA user_version=2`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	db, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := APISession{Endpoint: "http://192.168.18.167:8080", Email: "operator@example.com", Token: "private-session", ExpiresAt: "2026-10-12T12:00:00Z"}
+	if err = db.SaveAPISession(context.Background(), saved); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	db, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	got, err := db.APISession(context.Background())
+	if err != nil || got != saved {
+		t.Fatalf("session did not survive reopen: %+v %v", got, err)
+	}
+}

@@ -39,7 +39,10 @@ require (
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
+	kaelix/contracts v0.0.0
 	modernc.org/libc v1.77.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+replace kaelix/contracts => ../../packages/contracts
