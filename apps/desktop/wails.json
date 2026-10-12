@@ -8,5 +8,12 @@
   "frontend:dev:serverUrl": "auto",
   "author": {
     "name": "Kaelix"
+  },
+  "info": {
+    "companyName": "Kaelix",
+    "productName": "Kaelix Industrial Intelligence",
+    "productVersion": "0.1.0",
+    "copyright": "Kaelix",
+    "comments": "Industrial monitoring desktop application"
   }
 }
