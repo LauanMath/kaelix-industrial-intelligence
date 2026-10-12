@@ -36,13 +36,14 @@ func main() {
 	appMenu.Append(menu.EditMenu())
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:     "Kaelix",
-		Menu:      appMenu,
-		Mac:       &mac.Options{TitleBar: mac.TitleBarHidden(), Appearance: mac.NSAppearanceNameDarkAqua},
-		Width:     1440,
-		Height:    900,
-		MinWidth:  1000,
-		MinHeight: 700,
+		Title:            "Kaelix",
+		WindowStartState: options.Maximised,
+		Menu:             appMenu,
+		Mac:              &mac.Options{TitleBar: mac.TitleBarHidden(), Appearance: mac.NSAppearanceNameDarkAqua},
+		Width:            1440,
+		Height:           900,
+		MinWidth:         1000,
+		MinHeight:        700,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
