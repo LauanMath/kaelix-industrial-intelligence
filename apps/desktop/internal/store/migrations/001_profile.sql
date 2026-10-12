@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS profile (
+ id INTEGER PRIMARY KEY CHECK(id=1),
+ name TEXT NOT NULL DEFAULT '',
+ email TEXT NOT NULL DEFAULT '',
+ company TEXT NOT NULL DEFAULT '',
+ job_title TEXT NOT NULL DEFAULT '',
+ updated_at TEXT NOT NULL DEFAULT ''
+);
+INSERT OR IGNORE INTO profile(id) VALUES(1);
+PRAGMA user_version = 1;
