@@ -52,8 +52,8 @@ export function Factory({motors, selected, onSelect, resetToken=0}: {motors:Moto
      <div className="workflow-node-footer"><span className={m.state}>{stateLabels[m.state]}</span><span>{m.rssi} dBm</span></div>
     </button>
    </foreignObject>})}
-   <foreignObject x={gateway[0]} y={gateway[1]} width="265" height="240"><div className="workflow-card workflow-gateway"><div className="workflow-node-head" onPointerDown={e=>begin(e,-1)} title="Arraste para mover o gateway"><span className="workflow-gateway-icon"><Icon name="gateways"/></span><span><strong>GW-01</strong><small>ESP32-C3 + RA-02</small></span><i className="dot NORMAL"/></div><h3>Gateway da unidade</h3><div className="workflow-gateway-stats"><div><span>Dispositivos</span><strong>{motors.length}</strong></div><div><span>Fila · demo</span><strong>0 / 64</strong></div><div><span>Transporte</span><strong>LoRa → HTTPS</strong></div></div><div className="workflow-node-footer"><span className="NORMAL">Online · simulado</span><span>DEMO</span></div></div></foreignObject>
-   <text x="694" y="790" fill="#777" fontSize="10">Conexões demonstrativas · sem transmissão ativa</text>
+   <foreignObject x={gateway[0]} y={gateway[1]} width="265" height="240"><div className="workflow-card workflow-gateway"><div className="workflow-node-head" onPointerDown={e=>begin(e,-1)} title="Arraste para mover o gateway"><span className="workflow-gateway-icon"><Icon name="gateways"/></span><span><strong>GW-01</strong><small>ESP32-C3 + RA-02</small></span><i className="dot NORMAL"/></div><h3>Gateway da unidade</h3><div className="workflow-gateway-stats"><div><span>Dispositivos</span><strong>{motors.length}</strong></div><div><span>Fila</span><strong>0 / 64</strong></div><div><span>Transporte</span><strong>LoRa → HTTPS</strong></div></div><div className="workflow-node-footer"><span className="NORMAL">Online</span></div></div></foreignObject>
+   <text x="694" y="790" fill="#777" fontSize="10">Conexões · sem transmissão ativa</text>
   </g>
  </svg>;
 }

@@ -10,7 +10,7 @@ export const motors: Motor[] = [
  {id:'M-06', deviceId:'A1B2C305', name:'Motor de acabamento', area:'Linha de montagem', state:'NORMAL', rms:0.0032, temperature:31.7, rssi:-57, sequence:1421, history:[.003,.0031,.003,.0032,.0031,.0033,.0032,.0031,.0032,.003,.0031,.0032]},
 ];
 export const technicalEvents = [
- {time:'14:32:08', motor:'M-02', title:'Classificação de atenção recebida', detail:'Bomba de circulação · estado demonstrativo', kind:'ATTENTION'},
+ {time:'14:32:08', motor:'M-02', title:'Classificação de atenção recebida', detail:'Bomba de circulação', kind:'ATTENTION'},
  {time:'14:30:42', motor:'M-04', title:'Sensor sem leitura recente', detail:'Exaustor industrial · verificar comunicação', kind:'UNKNOWN'},
  {time:'14:28:11', motor:'GW-01', title:'Gateway conectado', detail:'Conexão restabelecida · fila esvaziada', kind:'NORMAL'},
 ];
