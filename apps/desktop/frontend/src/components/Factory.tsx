@@ -1,22 +1,59 @@
+import {useEffect, useRef, useState, type PointerEvent} from 'react';
 import {Motor, stateLabels} from '../lib/demo';
-export function Factory({motors, selected, onSelect}: {motors:Motor[];selected:string;onSelect:(id:string)=>void}) {
- const positions=[[120,160],[365,150],[610,140],[130,390],[375,380],[620,370]];
- return <svg className="factory" viewBox="0 0 960 690" role="group" aria-label="Planta industrial demonstrativa. Selecione um motor.">
- <defs><pattern id="grid" width="42" height="24" patternUnits="userSpaceOnUse"><path d="M0 24L42 0M0 0L42 24" stroke="#ffffff" strokeOpacity=".035" fill="none"/></pattern><linearGradient id="metal" x2="0" y2="1"><stop stopColor="#6b7374"/><stop offset="1" stopColor="#252b2d"/></linearGradient><linearGradient id="floor" x2="0" y2="1"><stop stopColor="#33393b"/><stop offset="1" stopColor="#191e20"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="4"/></filter></defs>
- <rect width="960" height="690" fill="url(#grid)"/>
- <path d="M45 325L480 105L918 322L485 561Z" fill="url(#floor)" stroke="#4b5455"/><path d="M45 325V345L485 582L918 343V322L485 561Z" fill="#121719" stroke="#394143"/>
- <g fill="none" stroke="#647071" strokeWidth="2" opacity=".4"><path d="M88 343L480 145L875 341M295 220L700 427M170 285L573 493"/><path d="M87 368L477 565M87 359L477 556"/></g>
- {motors.map((m,i)=>{const [x,y]=positions[i],color=m.state==='NORMAL'?'#8ee5a3':m.state==='ATTENTION'?'#edb66c':'#89959e',active=m.id===selected;return <g key={m.id} className="machine" transform={`translate(${x} ${y})`} onClick={()=>onSelect(m.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelect(m.id)}}} tabIndex={0} role="button" aria-label={`${m.id} ${m.name}, ${stateLabels[m.state]}`} aria-pressed={active}>
- <ellipse cx="105" cy="132" rx="115" ry="35" fill="#000" opacity=".3"/>
- <path d="M0 95L95 47L210 105L115 153Z" fill="#202729" stroke={active?color:'#576364'} strokeWidth={active?2:1}/><path d="M0 95V108L115 166L210 118V105L115 153Z" fill="#121719" stroke="#3a4548"/>
- {active&&<path d="M0 95L95 47L210 105L115 153Z" fill={color} opacity=".15" filter="url(#glow)"/>}
- <path d="M28 87L97 52L169 88L100 123Z" fill="#697171"/><path d="M28 87V102L100 140V123Z" fill="#353d3f"/><path d="M100 123L169 88V103L100 140Z" fill="#242d30"/>
- <path d="M65 78V36L103 17L140 36V79L103 98Z" fill="url(#metal)" stroke="#7c8888"/><path d="M65 36L103 56L140 36M103 56V98" fill="none" stroke="#a3aeaa" strokeOpacity=".5"/>
- {[0,1,2,3].map(n=><path key={n} d={`M69 ${47+n*8}L98 ${62+n*8}`} stroke="#172022" strokeWidth="3"/>)}
- <path d="M140 62L167 49L182 58V86L165 96L140 83Z" fill="#404c4b" stroke="#75827b"/><circle cx="168" cy="72" r="10" fill="#1b2728" stroke={color}/><circle cx="168" cy="72" r="4" fill={color}/>
- <path d="M13 85V15L106 -32L200 15V89M13 15L106 62L200 15M106 62V135" fill="none" stroke={active?color:'#687574'} strokeOpacity={active?.65:.25}/>
- <rect x="59" y="-58" width="114" height="27" rx="5" fill="#141b1d" stroke={active?color:'#445053'}/><circle cx="73" cy="-44" r="3" fill={color}/><text x="85" y="-40" fill="#e0e6e2" fontSize="12">{m.id}<tspan fill={color} dx="9" fontSize="10">{m.rms===null?'—':m.rms.toFixed(4)}</tspan></text>
- </g>})}
- <g transform="translate(727 520)"><path d="M0 0L45 -23L77 -6V37L33 60L0 43Z" fill="#293337" stroke="#667475"/><path d="M0 0L33 17L77 -6M33 17V60" stroke="#667475" fill="none"/><circle cx="16" cy="24" r="3" fill="#8ee5a3"/><text x="-5" y="83" fill="#8e9a9e" fontSize="11">GW-01 · LoRa</text><path d="M45 -23V-62M35 -53Q45 -67 55 -53M28 -61Q45 -83 62 -61" stroke="#8ee5a3" fill="none" strokeWidth="2"/></g>
- </svg>
+import {Icon} from './Icon';
+import './Workflow.css';
+
+const positions = [[45,90],[355,90],[45,320],[355,320],[45,550],[355,550]];
+const colors = {NORMAL:'#91d7a5', ATTENTION:'#dfb37a', UNKNOWN:'#858585'};
+function MotorGlyph(){
+ return <svg viewBox="0 0 64 48" fill="none" aria-hidden="true"><rect x="13" y="13" width="33" height="24" rx="5" fill="#353535" stroke="#aaa" strokeWidth="1.5"/><path d="M20 15v20m6-20v20m6-20v20m6-20v20" stroke="#7a7a7a"/><path d="M46 21h10v8H46M8 19h5v12H8M18 37v6h24v-6M22 13V7h15v6" stroke="#aaa" strokeWidth="1.5"/><path d="M13 43h34M25 7V4h9v3" stroke="#777" strokeWidth="1.5"/></svg>;
+}
+
+/** Drag node headers to rearrange topology; drag background to pan. */
+export function Factory({motors, selected, onSelect, resetToken=0}: {motors:Motor[];selected:string;onSelect:(id:string)=>void;resetToken?:number}) {
+ const [pan,setPan]=useState({x:0,y:0});
+ const [nodes,setNodes]=useState(positions);
+ const [gateway,setGateway]=useState([800,320]);
+ const svg=useRef<SVGSVGElement>(null);
+ const drag=useRef<{x:number;y:number;startX:number;startY:number;node:number|null}|null>(null);
+ const point=(x:number,y:number)=>{const matrix=svg.current?.getScreenCTM();return matrix?new DOMPoint(x,y).matrixTransform(matrix.inverse()):new DOMPoint(x,y);};
+ const begin=(e:PointerEvent,node:number|null)=>{
+  if(e.button!==0)return;
+  e.preventDefault();e.stopPropagation();
+  const pt=point(e.clientX,e.clientY);
+  const pos=node===null?[pan.x,pan.y]:node===-1?gateway:nodes[node];
+  drag.current={x:pt.x,y:pt.y,startX:pos[0],startY:pos[1],node};
+  svg.current?.setPointerCapture(e.pointerId);
+  if(node!==null&&node>=0)onSelect(motors[node].id);
+ };
+ useEffect(()=>{setPan({x:0,y:0});},[resetToken]);
+ return <svg ref={svg} className="factory workflow-canvas" viewBox="0 0 1120 820" role="group" aria-label="Workflow de moteurs. Arraste o cabeçalho dos cards para movê-los." onPointerDown={e=>{
+  if(!(e.target as Element).closest('.workflow-card'))begin(e,null);
+ }} onPointerMove={e=>{
+  const d=drag.current;if(!d)return;
+  const pt=point(e.clientX,e.clientY),x=d.startX+pt.x-d.x,y=d.startY+pt.y-d.y;
+  if(d.node===null)setPan({x,y});
+  else if(d.node===-1)setGateway([x,y]);
+  else setNodes(current=>current.map((pos,i)=>i===d.node?[x,y]:pos));
+ }} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}} onLostPointerCapture={()=>{drag.current=null}}>
+  <g transform={`translate(${pan.x} ${pan.y})`}>
+   <text x="45" y="60" fill="#929292" fontSize="10" letterSpacing="2">EQUIPAMENTOS / SENSORES</text>
+   <text x={gateway[0]} y={gateway[1]-25} fill="#929292" fontSize="10" letterSpacing="2">RECEPÇÃO / GATEWAY</text>
+   {motors.map((m,i)=>{const [x,y]=nodes[i],endX=gateway[0],endY=gateway[1]+45+i*24;return <g key={m.id}>
+    <path d={`M${x+245} ${y+95}C${x+245+Math.max(65,Math.abs(endX-x-245)*.45)} ${y+95} ${endX-Math.max(65,Math.abs(endX-x-245)*.45)} ${endY} ${endX} ${endY}`} fill="none" stroke={m.id===selected?'#fb5102':m.state==='UNKNOWN'?'#484848':'#646464'} strokeWidth={m.id===selected?2:1.3} strokeDasharray={m.state==='UNKNOWN'?'5 6':undefined}/>
+    <circle cx={x+245} cy={y+95} r="5" fill="#202020" stroke={colors[m.state]} strokeWidth="2"/>
+    <circle cx={endX} cy={endY} r="4" fill="#202020" stroke={m.id===selected?'#fb5102':'#888'}/>
+   </g>})}
+   {motors.map((m,i)=>{const [x,y]=nodes[i];return <foreignObject key={m.id} x={x} y={y} width="245" height="195">
+    <button className={`workflow-card ${m.id===selected?'is-selected':''}`} onClick={()=>onSelect(m.id)} aria-pressed={m.id===selected} aria-label={`${m.id} ${m.name}, ${stateLabels[m.state]}`}>
+     <div className="workflow-node-head" onPointerDown={e=>begin(e,i)} title="Arraste para mover o motor"><span className="workflow-motor-icon"><MotorGlyph/></span><span><strong>{m.id}</strong><small>SENSOR · {m.deviceId}</small></span><i className={`dot ${m.state}`}/></div>
+     <h3>{m.name}</h3>
+     <div className="workflow-node-stats"><div><span>RMS</span><strong>{m.rms?.toFixed(4)??'—'} <small>g</small></strong></div><div><span>Temperatura</span><strong>{m.temperature?.toFixed(1)??'—'} <small>°C</small></strong></div></div>
+     <div className="workflow-node-footer"><span className={m.state}>{stateLabels[m.state]}</span><span>{m.rssi} dBm</span></div>
+    </button>
+   </foreignObject>})}
+   <foreignObject x={gateway[0]} y={gateway[1]} width="265" height="240"><div className="workflow-card workflow-gateway"><div className="workflow-node-head" onPointerDown={e=>begin(e,-1)} title="Arraste para mover o gateway"><span className="workflow-gateway-icon"><Icon name="gateways"/></span><span><strong>GW-01</strong><small>ESP32-C3 + RA-02</small></span><i className="dot NORMAL"/></div><h3>Gateway da unidade</h3><div className="workflow-gateway-stats"><div><span>Dispositivos</span><strong>{motors.length}</strong></div><div><span>Fila · demo</span><strong>0 / 64</strong></div><div><span>Transporte</span><strong>LoRa → HTTPS</strong></div></div><div className="workflow-node-footer"><span className="NORMAL">Online · simulado</span><span>DEMO</span></div></div></foreignObject>
+   <text x="694" y="790" fill="#777" fontSize="10">Conexões demonstrativas · sem transmissão ativa</text>
+  </g>
+ </svg>;
 }
