@@ -8,3 +8,5 @@ apps/desktop/build/bin/
 .DS_Store
 
 apps/desktop/frontend/package.json.md5
+
+/apps/server/api
