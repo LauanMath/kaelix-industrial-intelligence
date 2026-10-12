@@ -55,3 +55,19 @@ do conjunto demonstrativo. Horários e estados da tela são exemplos, não reló
 O CSV contém apenas as últimas leituras demonstrativas, sem timestamp de aquisição.
 
 A próxima etapa é implementar contrato HTTP, API e banco conforme o documento de arquitetura.
+
+## Perfil e banco local
+
+O modal de Perfil (avatar na barra superior ou Ctrl/⌘ + 7) salva nome, e-mail, empresa e cargo em SQLite,
+com migração automática no startup. O arquivo fica em `Kaelix/kaelix.db`
+dentro de `os.UserConfigDir()`; no macOS, `~/Library/Application Support/Kaelix/`.
+Requisito Go atualizado para 1.26 pelo driver SQLite.
+
+O perfil é local e não é uma conta autenticada. Nenhuma senha é armazenada.
+A API, o PostgreSQL central e a persistência de medições continuam pendentes.
+No navegador sem Wails, o perfil informa a indisponibilidade do backend;
+não substitui a persistência por dados simulados.
+
+A foto do perfil pode ser escolhida pelo seletor nativo (PNG/JPEG até 10 MB),
+recortada ao centro em 256×256 e armazenada no SQLite. Escape ou clique no
+fundo fecha o modal.

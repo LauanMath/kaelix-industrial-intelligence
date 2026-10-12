@@ -1,5 +1,7 @@
-import { SquaresFourIcon, ChartLineIcon, CpuIcon, BroadcastIcon, ListBulletsIcon, SlidersHorizontalIcon, SidebarSimpleIcon, ExportIcon, MagnifyingGlassIcon, PlusIcon, MinusIcon, CrosshairIcon, InfoIcon, ArrowUpRightIcon } from '@phosphor-icons/react';
+import { XIcon, UserCircleIcon, SquaresFourIcon, ChartLineIcon, CpuIcon, BroadcastIcon, ListBulletsIcon, SlidersHorizontalIcon, SidebarSimpleIcon, ExportIcon, MagnifyingGlassIcon, PlusIcon, MinusIcon, CrosshairIcon, InfoIcon, ArrowUpRightIcon } from '@phosphor-icons/react';
 const icons = {
+ close: XIcon,
+ profile: UserCircleIcon,
  dashboard: SquaresFourIcon, monitor: ChartLineIcon, motors: CpuIcon, gateways: BroadcastIcon,
  events: ListBulletsIcon, settings: SlidersHorizontalIcon,
  sidebar: SidebarSimpleIcon, export: ExportIcon, search: MagnifyingGlassIcon,

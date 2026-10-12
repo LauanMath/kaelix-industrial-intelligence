@@ -16,3 +16,5 @@
 
 /* The grid belongs to the viewport, so SVG letterboxing and zoom cannot expose gaps. */
 .plant-viewport:has(.workflow-canvas){background-color:#171717;background-image:radial-gradient(circle,#414141 1px,transparent 1px);background-size:22px 22px;background-position:0 0}
+
+.profile-avatar{width:60px;height:60px;margin:24px 0 12px;display:grid;place-items:center;background:#fb510220;border:1px solid #fb5102;color:#ff9b70;border-radius:12px;font-size:22px;font-weight:600}

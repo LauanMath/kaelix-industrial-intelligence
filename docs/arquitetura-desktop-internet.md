@@ -190,3 +190,10 @@ A camada de internet não corrige as falhas SPI observadas anteriormente. Monito
 - [Wails: suporte e funcionalidades](https://wails.io/docs/introduction/).
 - [Go: cliente e servidor HTTP](https://pkg.go.dev/net/http).
 - [Espressif: cliente HTTP/HTTPS no ESP32-C3](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/protocols/esp_http_client.html). Referência de capacidades do chip/SDK; o projeto atual usa Arduino e sua integração será feita sem mudança de framework.
+
+## Persistência local implementada
+
+O desktop tem SQLite para um perfil local (nome, e-mail, empresa e cargo).
+Migrações ficam em `apps/desktop/internal/store/migrations` e são aplicadas
+transacionalmente. Esse perfil não autentica acesso à API. PostgreSQL continua
+sendo a persistência central planejada para usuários, dispositivos e medições.

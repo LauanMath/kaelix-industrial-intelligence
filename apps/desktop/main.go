@@ -25,7 +25,7 @@ func main() {
 		appMenu.Append(menu.AppMenu())
 	}
 	viewMenu := appMenu.AddSubmenu("Área de trabalho")
-	for index, label := range []string{"Monitoramento", "Motores", "Gateways", "Eventos", "Configurações", "Dashboard"} {
+	for index, label := range []string{"Monitoramento", "Motores", "Gateways", "Eventos", "Configurações", "Dashboard", "Perfil"} {
 		workspace := index
 		viewMenu.AddText(label, keys.CmdOrCtrl(string(rune('1'+index))), func(_ *menu.CallbackData) {
 			if app.ctx != nil {
