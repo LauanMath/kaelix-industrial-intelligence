@@ -20,7 +20,9 @@ O gráfico acompanha a classificação recebida; o valor numérico principal é 
 
 A assinatura usa caixa alta, espaçamento controlado e o descritor
 “Industrial Intelligence”. As fontes das referências são direções visuais;
-a interface utiliza fontes de sistema, sem dependência de download ou licença de fonte externa.
+a interface usa Inter, os títulos Space Grotesk e a telemetria JetBrains Mono,
+como no SOLARA. As fontes são distribuídas localmente em `public/fonts`, com suas
+licenças SIL Open Font License, para funcionar sem internet.
 
 ## Assets
 
