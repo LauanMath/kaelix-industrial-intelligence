@@ -1,8 +1,9 @@
 # Arquitetura da aplicação desktop e comunicação pela internet
 
-Proposta de implementação — 11/10/2026.
+Arquitetura e estado de implementação — 11/10/2026.
 
-Stack escolhida pelo usuário: **Wails, Go e TypeScript**, com aplicação desktop multiplataforma. O enlace S3 → LoRa → C3 já recebeu pacotes válidos em bancada. O envio pela internet, servidor e desktop ainda serão implementados.
+Stack escolhida pelo usuário: **Wails, Go e TypeScript**, com aplicação desktop multiplataforma. O enlace S3 → LoRa → C3 já recebeu pacotes válidos em bancada. A API Go e o PostgreSQL central estão implementados. O envio do C3 por HTTP na LAN está ativo, e o desktop consulta as medições reais
+pela API. Publicação HTTPS pela internet ainda é uma etapa posterior.
 
 ## Fluxo principal
 
@@ -49,8 +50,8 @@ Exemplo ilustrativo de uma requisição:
 ```json
 {
   "schema_version": 1,
-  "gateway_id": "gateway-01",
-  "gateway_session_id": "c3-session-unique-at-boot",
+  "gateway_id": "5ef49647-9449-4f47-8d1d-c06611c3ba81",
+  "gateway_session_id": "17162ec5-4fe1-4dac-a871-879120324a57",
   "upload_uptime_ms": 13000,
   "readings": [
     {
@@ -88,7 +89,7 @@ O valor de CRC é apenas ilustrativo. Pacotes sem CRC válido não entram no cam
 
 `device_sequence` é o `boot_count` do pacote atual. No ambiente de bancada ele incrementa por ciclo e pode voltar a 1 após reset. Por isso, **não usar `(device_id, device_sequence)` como chave única permanente**.
 
-O gateway tem identidade cadastrada e uma sessão nova a cada boot, gerada com identificador aleatório. `event_seq` incrementa por pacote validado, dentro dessa sessão. A chave `(gateway_id, gateway_session_id, event_seq)` identifica o evento de recepção e permanece igual em todas as tentativas de envio desse evento.
+O gateway tem identidade cadastrada e uma sessão nova a cada boot, gerada com UUID aleatório em minúsculas. `event_seq` incrementa por pacote validado, dentro dessa sessão. A chave `(gateway_id, gateway_session_id, event_seq)` identifica o evento de recepção e permanece igual em todas as tentativas de envio desse evento.
 
 O servidor registra `ingested_at` em UTC. O C3 sincroniza relógio por NTP quando disponível; `gateway_received_at` fica `null` se o relógio não era confiável na recepção. A tela distingue horário de recepção no gateway de horário de chegada ao servidor: nenhum deles deve ser rotulado como horário exato de aquisição no motor.
 
@@ -165,12 +166,13 @@ apps/
 packages/
   contracts/              # DTOs Go e exemplos de contrato HTTP
 deploy/
-  migrations/             # Migrações SQL
   compose.yaml            # Ambiente local de API + PostgreSQL
 src/receiver/             # Firmware C3: rádio + fila + transporte HTTPS
 ```
 
-Servidor e desktop importam DTOs Go compartilhados. O frontend usa bindings gerados pelo Wails; testes de contrato verificam o JSON emitido pelo C3. Dependências Go/TypeScript ficam separadas do projeto Python de treinamento já existente.
+O servidor importa DTOs Go compartilhados em `packages/contracts`; o cliente do
+desktop utiliza o mesmo contrato pelo backend Go do Wails. Migrações centrais ficam embutidas
+em `apps/server/internal/store/migrations`. O frontend usa bindings gerados pelo Wails; testes de contrato verificam o JSON emitido pelo C3. Dependências Go/TypeScript ficam separadas do projeto Python de treinamento já existente.
 
 ## Etapas e critérios de aceite
 
@@ -195,5 +197,61 @@ A camada de internet não corrige as falhas SPI observadas anteriormente. Monito
 
 O desktop tem SQLite para um perfil local (nome, e-mail, empresa e cargo).
 Migrações ficam em `apps/desktop/internal/store/migrations` e são aplicadas
-transacionalmente. Esse perfil não autentica acesso à API. PostgreSQL continua
-sendo a persistência central planejada para usuários, dispositivos e medições.
+transacionalmente. Esse perfil não autentica acesso à API. PostgreSQL central está implementado no servidor para contas administrativas,
+sessões, motores, dispositivos, gateways e medições.
+
+## API e banco central implementados
+
+O ponto **API Go + banco central: ingestão, histórico e cadastro de dispositivos**
+está implementado em `apps/server`, com PostgreSQL e DTOs em `packages/contracts`.
+Execução, exemplos e limites do contrato estão no [guia da API](../apps/server/README.md).
+
+- Migração versionada e transacional, serializada entre instâncias.
+- Cadastro e atualização de dispositivos/motores, vínculo único e preservação de sensores não associados.
+- Cadastro de gateways com credencial própria, armazenada por hash e passível de rotação.
+- Login administrativo com bcrypt, sessões revogáveis e separação de permissões de usuário/gateway.
+- Lotes v1 de até oito leituras: commit antes da confirmação, reenvio idempotente e rollback integral em conflito.
+- Preservação de `null`/`UNKNOWN`, atraso de fila e distinção dos horários de ingestão/recepção estimada.
+- Últimas leituras, histórico por período/cursor e último heartbeat de cada gateway.
+- Testes com PostgreSQL real para persistência, concorrência, autenticação e contrato.
+
+A tabela “API inicial” acima contém também endpoints previstos: `/events` permanece
+pendente. Cadastro de dispositivos e rotação de credenciais estão detalhados no guia.
+O frontend utiliza o cliente Go da API, com sessão autenticada e consultas reais.
+A implantação HTTPS pública e a validação fora da LAN continuam pendentes.
+
+### Alinhamento com o contrato do firmware C3
+
+A fronteira de ingestão adota o contrato em
+`kaelix-firmware/docs/contracts/gateway-v1`, copiado sem alterações para
+`packages/contracts/gateway-v1` neste repositório. Estados de protocolo são
+`NORMAL`, `ANOMALOUS` e `UNKNOWN`; sequência do sensor é uint32. Confirmações
+versionadas usam `acknowledged` com `stored`/`duplicate`; erros incluem código,
+`retryable` e detalhes. Ingestão limita corpo a 32 KiB e rejeita chaves duplicadas.
+
+O heartbeat inclui sequência, versão de firmware, saúde e contadores. Snapshots
+repetidos/antigos não renovam atividade ou regridem o estado; sessões aposentadas
+não substituem a ativa. A escolha inicial da sessão usa ordem de primeira recepção
+no servidor: UUID sozinho não ordena boots de sessões nunca antes observadas.
+A política e essa limitação estão documentadas no guia da API. Migração 002
+preserva os dados e arquiva snapshots do formato anterior de heartbeat.
+
+## Desktop conectado aos dados reais
+
+O backend Wails (`app_api.go` e `internal/apiclient`) autentica, carrega cadastros,
+gateways e últimas recepções em paralelo, com timeout e cancelamento. Polling da
+interface ocorre a cada dois segundos, sem sobreposição; históricos são consultados
+quando o sensor/período/última medição muda. URL e sessão ficam no SQLite privado,
+com migração 003; senha nunca é persistida. Logout revoga a sessão e remove o token.
+
+`frontend/src/lib/demo.ts` foi removido. Sensores não associados são exibidos pelo
+ID recebido e podem ser cadastrados/vinculados a motores. Workflow usa quantidade
+real de sensores/gateways e vínculo da última recepção. Dashboard e indicadores
+usam os mesmos dados; a aba Eventos mostra recepções persistidas (`/readings/recent`),
+sem criar alertas de classificação ou conexão fictícios.
+
+Histórico usa período/cursor e unidades originais; CSV exporta as leituras carregadas
+com horários distintos de recepção/ingestão. Falha da API indica explicitamente a
+última consulta preservada; campos ausentes não são preenchidos com zeros. Não há
+substituição por dados simulados. Conta da API e perfil de exibição local continuam
+separados.
