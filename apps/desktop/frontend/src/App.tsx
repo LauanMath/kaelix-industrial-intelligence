@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
 import {EventsOn} from '../wailsjs/runtime/runtime';
+import {Dashboard} from './components/Dashboard';
 import {Factory} from './components/Factory';
 import {Trend} from './components/Trend';
 import {motors, stateLabels, technicalEvents, exportCSV} from './lib/demo';
@@ -7,7 +8,7 @@ import {Brand} from './components/Brand';
 import {Icon} from './components/Icon';
 import './App.css';
 import './brand.css';
-const tabs=['Visão geral','Motores','Gateways','Eventos','Configurações'] as const;
+const tabs=['Visão geral','Motores','Gateways','Eventos','Configurações','Dashboard'] as const;
 type Tab=typeof tabs[number];
 function App(){
  const [tab,setTab]=useState<Tab>('Visão geral'),[selected,setSelected]=useState('M-01'),[search,setSearch]=useState(''),[period,setPeriod]=useState('1 hora'),[endpoint,setEndpoint]=useState(localStorage.getItem('kaelix.endpoint') || 'http://localhost:8080'),[saved,setSaved]=useState(false),[zoom,setZoom]=useState(1);
@@ -15,7 +16,7 @@ function App(){
  const [viewReset,setViewReset]=useState(0);
  useEffect(()=>{
  const navigate=(index:number)=>{if(tabs[index])setTab(tabs[index]);};
- const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&/^[1-5]$/.test(e.key)){e.preventDefault();navigate(Number(e.key)-1);}if(e.key==='Escape')setSearch('');};
+ const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&/^[1-6]$/.test(e.key)){e.preventDefault();navigate(Number(e.key)-1);}if(e.key==='Escape')setSearch('');};
  window.addEventListener('keydown',onKey);
  const off=(window as unknown as {runtime?:unknown}).runtime?EventsOn('workspace:select',navigate):()=>{};
  return ()=>{window.removeEventListener('keydown',onKey);off();};
@@ -27,11 +28,11 @@ function App(){
  <header className="window-bar"><span className="window-title">Kaelix <span>— Unidade demonstrativa</span></span><span className="window-mode">DEMONSTRAÇÃO</span></header>
  <aside className="app-sidebar"><div className="sidebar-brand"><Brand compact={collapsed}/><button className="collapse-button" title={collapsed?'Expandir navegação':'Recolher navegação'} aria-label={collapsed?'Expandir navegação':'Recolher navegação'} onClick={()=>setCollapsed(v=>!v)}><Icon name="sidebar"/></button></div>
  {!collapsed&&<div className="sidebar-unit"><span className="dot NORMAL"/> Unidade demonstrativa<small>Setor A · 6 equipamentos</small></div>}
- <nav aria-label="Áreas de trabalho">{tabs.map((t,i)=><button key={t} title={`${t} · Ctrl/⌘ ${i+1}`} className={tab===t?'nav active':'nav'} onClick={()=>setTab(t)} aria-current={tab===t?'page':undefined}><Icon name={(['monitor','motors','gateways','events','settings'] as const)[i]}/>{!collapsed&&<><span className="nav-label">{t==='Visão geral'?'Monitoramento':t}</span><kbd>{i+1}</kbd></>}</button>)}</nav>
+ <nav aria-label="Áreas de trabalho">{tabs.map((t,i)=><button key={t} title={`${t} · Ctrl/⌘ ${i+1}`} className={tab===t?'nav active':'nav'} onClick={()=>setTab(t)} aria-current={tab===t?'page':undefined}><Icon name={(['monitor','motors','gateways','events','settings','dashboard'] as const)[i]}/>{!collapsed&&<><span className="nav-label">{t==='Visão geral'?'Monitoramento':t}</span><kbd>{i+1}</kbd></>}</button>)}</nav>
  <div className="sidebar-bottom">{!collapsed&&<><span className="eyebrow">AMBIENTE LOCAL</span><p>Dados demonstrativos</p><small>API não conectada</small></>}</div></aside>
  <div className="workspace-bar"><div className="workspace-path"><span>Unidade demonstrativa</span><span>›</span><h1>{tab==='Visão geral'?'Monitoramento':tab}</h1></div><div className="toolbar"><button className="button" onClick={()=>exportCSV(filtered)} title="Exportar últimas leituras demonstrativas"><Icon name="export"/> Exportar CSV</button></div></div>
  <div className={`work-area work-${tab==='Visão geral'?'monitor':tab==='Motores'?'motors':'other'}`}>
- {tab==='Visão geral'||tab==='Motores'?<>
+ {tab==='Dashboard'?<Dashboard onInspect={id=>{setSelected(id);setTab('Motores');}} onEvents={()=>setTab('Eventos')}/>:tab==='Visão geral'||tab==='Motores'?<>
  <div className="stats"><div><span>Motores monitorados</span><strong>06 <small>equipamentos</small></strong><p>01 gateway cadastrado</p></div><div><span>Estado normal</span><strong className="green">04 <small>motores</small></strong><p><i className="dot NORMAL"/> Classificação demonstrativa</p></div><div><span>Requer atenção</span><strong className="amber">01 <small>motor</small></strong><p><i className="dot ATTENTION"/> Verificar M-02</p></div><div><span>Sem leitura recente</span><strong>01 <small>sensor</small></strong><p><i className="dot UNKNOWN"/> Comunicação indisponível</p></div></div>
  <main className={tab==='Motores'?'monitor-layout list-mode':'monitor-layout'}>
  <section className="plant-panel"><div className="panel-header"><div><span className="eyebrow">{tab==='Motores'?'EQUIPAMENTOS':'TOPOLOGIA DA UNIDADE'}</span><h2>{tab==='Motores'?'Motores da unidade':'Workflow de monitoramento'}</h2></div><span className="subtle">{tab==='Motores'?'06 motores':'Canvas 2D'}</span></div>

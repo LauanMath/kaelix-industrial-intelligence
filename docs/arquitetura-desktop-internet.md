@@ -139,7 +139,7 @@ O frontend do Wails deve funcionar como área de trabalho: navegação lateral,
 barra de comandos compacta, painéis ajustados à janela e barra de estado.
 A rolagem pertence às listas e aos painéis, sem rolagem global de página.
 No macOS, manter os controles nativos da janela e integrar o cabeçalho à barra
-superior. Áreas de trabalho acessíveis pelo menu nativo e por Ctrl/⌘ + 1 a 5.
+superior. Áreas de trabalho acessíveis pelo menu nativo e por Ctrl/⌘ + 1 a 6.
 A referência local de organização da interface é o projeto TERRA-Open-Energy;
 a direção visual industrial continua baseada nas imagens fornecidas.
 

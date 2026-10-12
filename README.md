@@ -1,11 +1,12 @@
 # Kaelix · Industrial Intelligence
 
 Boilerplate desktop de monitoramento industrial com Wails 2, Go, React e TypeScript.
-A interface segue as referências visuais em `.temp`: tema escuro, planta isométrica,
-telemetria lateral e estados de operação em verde e âmbar. A janela usa uma área de trabalho
+A interface segue as referências visuais em `.temp`: tema escuro, workflow 2D,
+telemetria lateral e estados de operação em verde e âmbar. A identidade combina
+laranja, grafite e um símbolo geométrico próprio; consulte `docs/identidade-visual.md`. A janela usa uma área de trabalho
 fixa, navegação lateral recolhível, painéis com rolagem independente, barra de estado
-e atalhos Ctrl/⌘ + 1 a 5. No macOS, o cabeçalho integra a barra nativa
-e o menu Área de trabalho permite trocar de seção. A planta é SVG próprio;
+e atalhos Ctrl/⌘ + 1 a 6. No macOS, o cabeçalho integra a barra nativa
+e o menu Área de trabalho permite trocar de seção. O canvas usa SVG e cards interativos;
 as imagens de referência não são distribuídas na aplicação.
 
 ## Executar
