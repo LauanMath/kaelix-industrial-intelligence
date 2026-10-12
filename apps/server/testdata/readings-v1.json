@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "gateway_id": "5ef49647-9449-4f47-8d1d-c06611c3ba81",
+  "gateway_session_id": "17162ec5-4fe1-4dac-a871-879120324a57",
+  "upload_uptime_ms": 13000,
+  "readings": [
+    {
+      "event_seq": 1,
+      "gateway_rx_uptime_ms": 12000,
+      "gateway_received_at": null,
+      "packet_version": 2,
+      "device_id": "D6F61B44",
+      "device_sequence": 1,
+      "state": "UNKNOWN",
+      "diag_code": 0,
+      "rms_g": 0.0035979999229311943,
+      "temperature_c": null,
+      "rssi_dbm": -55.0,
+      "snr_db": 13.5,
+      "packet_crc16": 33642
+    }
+  ]
+}
