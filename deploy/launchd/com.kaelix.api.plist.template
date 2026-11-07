@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Kaelix API as a user service on macOS. scripts/install-launchagent.sh fills the
+  __PLACEHOLDERS__. Secrets stay in the environment file (mode 0600), not in this plist.
+  caffeinate -s keeps the Mac from idle-sleeping while it is on AC power.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>__LABEL__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/caffeinate</string>
+    <string>-s</string>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>set -a; . "$0"; set +a; exec "$1"</string>
+    <string>__ENV_FILE__</string>
+    <string>__API_BINARY__</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>WorkingDirectory</key>
+  <string>__DATA_DIR__</string>
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/api.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/api.log</string>
+</dict>
+</plist>
