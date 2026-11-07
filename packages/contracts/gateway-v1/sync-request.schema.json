@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kaelix:gateway:v1:sync-request",
+  "title": "sync-request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gateway_id",
+    "gateway_session_id",
+    "config_version",
+    "firmware_version",
+    "devices"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "gateway_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "gateway_session_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "config_version": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "firmware_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "ota_result": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "ok"
+          ],
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        }
+      ]
+    },
+    "devices": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "device_id"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{8}$"
+          },
+          "radiated_config_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "radiated_command_seq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 65535
+          }
+        }
+      }
+    }
+  }
+}

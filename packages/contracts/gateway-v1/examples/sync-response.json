@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "gateway_id": "5ef49647-9449-4f47-8d1d-c06611c3ba81",
+  "gateway_session_id": "17162ec5-4fe1-4dac-a871-879120324a57",
+  "server_time": "2026-11-02T04:59:22.120Z",
+  "gateway_config": {
+    "version": 4,
+    "wifi": [
+      {
+        "ssid": "rede-local",
+        "password": "senha-de-exemplo"
+      }
+    ],
+    "heartbeat_interval_s": 30,
+    "sync_interval_s": 5,
+    "ap_when_offline": true,
+    "tx_power_dbm": 17
+  },
+  "devices": [
+    {
+      "device_id": "AB12CD34",
+      "config": {
+        "version": 7,
+        "cycle_interval_s": 11,
+        "window_samples": 512,
+        "channels": 63,
+        "accel_range": 1,
+        "gyro_range": 0,
+        "dlpf": 1,
+        "tx_power_dbm": 10,
+        "burst_profile": 2,
+        "wave_every": 1,
+        "link_loss_s": 900,
+        "checkin_interval_s": 300,
+        "tz_offset_min": -180,
+        "routine": [
+          {
+            "days": 62,
+            "start_min": 480,
+            "end_min": 1020
+          }
+        ]
+      },
+      "command": {
+        "seq": 3,
+        "kind": "capture_now"
+      }
+    }
+  ],
+  "firmware": {
+    "version": "gateway-2.1.0",
+    "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "size": 1048576,
+    "path": "/api/v1/gateway/firmware/7b1a6d40-3c6f-4a55-9d3e-2f8a1c0e5b77"
+  }
+}

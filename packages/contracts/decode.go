@@ -42,7 +42,7 @@ func decodeRequired(data []byte, target any, required []string, nullable map[str
 			return fmt.Errorf("%s is required", key)
 		}
 	}
-	for _, key := range []string{"gateway_received_at", "sent_at"} {
+	for _, key := range []string{"gateway_received_at", "sent_at", "device_time"} {
 		if raw, ok := fields[key]; ok && string(raw) != "null" {
 			var stamp string
 			if json.Unmarshal(raw, &stamp) != nil || !strings.HasSuffix(stamp, "Z") {

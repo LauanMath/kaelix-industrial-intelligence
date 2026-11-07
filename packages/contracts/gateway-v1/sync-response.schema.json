@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kaelix:gateway:v1:sync-response",
+  "title": "sync-response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gateway_id",
+    "gateway_session_id",
+    "server_time",
+    "gateway_config",
+    "devices",
+    "firmware"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "gateway_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "gateway_session_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "server_time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "gateway_config": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/gateway_config"
+        }
+      ]
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "device_id",
+          "config",
+          "command"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{8}$"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/device_config"
+              }
+            ]
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "seq",
+                  "kind"
+                ],
+                "properties": {
+                  "seq": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "kind": {
+                    "enum": [
+                      "reboot",
+                      "factory_reset",
+                      "capture_now"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "firmware": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "sha256",
+            "size",
+            "path"
+          ],
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/api/v1/gateway/firmware/"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "routine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "days",
+        "start_min",
+        "end_min"
+      ],
+      "properties": {
+        "days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 127
+        },
+        "start_min": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1440
+        },
+        "end_min": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1440
+        }
+      }
+    },
+    "device_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "cycle_interval_s",
+        "window_samples",
+        "channels",
+        "accel_range",
+        "gyro_range",
+        "dlpf",
+        "tx_power_dbm",
+        "burst_profile",
+        "wave_every",
+        "link_loss_s",
+        "checkin_interval_s",
+        "tz_offset_min",
+        "routine"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "cycle_interval_s": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "window_samples": {
+          "enum": [
+            256,
+            512,
+            1024,
+            2048,
+            4096
+          ]
+        },
+        "channels": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 63
+        },
+        "accel_range": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "gyro_range": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "dlpf": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "tx_power_dbm": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 17
+        },
+        "burst_profile": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "wave_every": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "link_loss_s": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 86400
+        },
+        "checkin_interval_s": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 3600
+        },
+        "tz_offset_min": {
+          "type": "integer",
+          "minimum": -720,
+          "maximum": 840
+        },
+        "routine": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/routine"
+          }
+        }
+      }
+    },
+    "gateway_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "wifi",
+        "heartbeat_interval_s",
+        "sync_interval_s",
+        "ap_when_offline",
+        "tx_power_dbm"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "wifi": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ssid",
+              "password"
+            ],
+            "properties": {
+              "ssid": {
+                "type": "string",
+                "minLength": 1
+              },
+              "password": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "heartbeat_interval_s": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 300
+        },
+        "sync_interval_s": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 60
+        },
+        "ap_when_offline": {
+          "type": "boolean"
+        },
+        "tx_power_dbm": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 17
+        }
+      }
+    }
+  }
+}

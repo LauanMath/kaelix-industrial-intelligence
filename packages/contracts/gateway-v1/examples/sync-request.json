@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "gateway_id": "5ef49647-9449-4f47-8d1d-c06611c3ba81",
+  "gateway_session_id": "17162ec5-4fe1-4dac-a871-879120324a57",
+  "config_version": 3,
+  "firmware_version": "gateway-2.0.0",
+  "ota_result": null,
+  "devices": [
+    {
+      "device_id": "AB12CD34",
+      "radiated_config_version": 7,
+      "radiated_command_seq": 2
+    }
+  ]
+}
