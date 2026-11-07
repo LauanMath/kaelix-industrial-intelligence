@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaelix Coleta</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #16181a; --panel: #1f2225; --line: #33383c; --text: #eceef0; --muted: #a3a9ae;
+  --accent: #e8622a; --on-accent: #16181a; --good: #4cc38a; --warn: #e5b53c; --bad: #ef6a5e;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f3f4f5; --panel: #ffffff; --line: #d5d9dc; --text: #1b1e20; --muted: #5c6369;
+    --accent: #c74a14; --on-accent: #ffffff; --good: #137a4c; --warn: #8a6500; --bad: #bb2d21;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+[hidden] { display: none !important; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; letter-spacing: .08em; }
+.brand span { color: var(--accent); }
+main { max-width: 560px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+h2 { margin: 0 0 12px; font-size: 17px; }
+label { display: block; margin: 12px 0 4px; color: var(--muted); font-size: 14px; }
+input, textarea, select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+textarea { min-height: 76px; resize: vertical; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { min-height: 46px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+button.primary { width: 100%; margin-top: 16px; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+button.danger { width: 100%; margin-top: 16px; background: transparent; border-color: var(--bad); color: var(--bad); }
+button.quiet { min-height: 38px; padding: 6px 12px; font-weight: 500; color: var(--muted); }
+button:disabled { opacity: .55; cursor: default; }
+.banner { padding: 12px 14px; border: 1px solid var(--warn); border-radius: 10px; color: var(--warn); }
+.error { margin: 10px 0 0; color: var(--bad); font-size: 14px; }
+.note { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: 0; }
+.row > span:first-child { color: var(--muted); font-size: 14px; }
+.row > strong, .row > span:last-child { text-align: right; font-weight: 600; }
+.ok { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.stat { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.stat span { display: block; color: var(--muted); font-size: 13px; }
+.stat strong { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.title { margin: 0; font-size: 19px; font-weight: 700; overflow-wrap: anywhere; }
+.inline { display: flex; gap: 8px; align-items: flex-end; }
+.inline > div { flex: 1; }
+.inline button { flex: none; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 4px; border-top: 1px solid var(--line); text-align: right; }
+th { border-top: 0; color: var(--muted); font-weight: 500; }
+th:first-child, td:first-child { text-align: left; }
+.past { width: 100%; min-height: 54px; padding: 10px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; text-align: left; font-weight: 500; }
+.past small { display: block; color: var(--muted); font-weight: 400; }
+.detail { padding: 0 0 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span>K</span> KAELIX</div>
+  <button class="quiet" id="logout" hidden>Sair</button>
+</header>
+
+<main id="login-view" hidden>
+  <section>
+    <h2>Entrar</h2>
+    <form id="login-form">
+      <label for="email">E-mail</label>
+      <input id="email" type="email" autocomplete="username" autocapitalize="none" required>
+      <label for="password">Senha</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button class="primary" type="submit">Entrar</button>
+      <p class="error" id="login-error" role="alert" hidden></p>
+    </form>
+  </section>
+</main>
+
+<main id="app-view" hidden>
+  <div class="banner" id="offline" role="status" hidden>Sem resposta do computador. Se o gateway estiver ligado, ele continua gravando. Confira se o Mac está ligado e no mesmo Wi-Fi.</div>
+
+  <section id="collection-open" hidden>
+    <h2>Coleta em andamento</h2>
+    <p class="title" id="open-name"></p>
+    <p class="note" id="open-meta"></p>
+    <div class="grid">
+      <div class="stat"><span>Duração</span><strong id="open-duration"></strong></div>
+      <div class="stat"><span>Leituras</span><strong id="open-readings"></strong></div>
+      <div class="stat"><span>Ondas completas</span><strong id="open-waves"></strong></div>
+      <div class="stat"><span>Leituras perdidas</span><strong id="open-missing"></strong></div>
+    </div>
+    <p class="note" id="open-delivery"></p>
+    <p class="error" id="open-warning" role="alert" hidden></p>
+    <button class="danger" id="stop" type="button">Encerrar coleta</button>
+    <p class="error" id="stop-error" role="alert" hidden></p>
+  </section>
+
+  <section id="collection-new" hidden>
+    <h2>Nova coleta</h2>
+    <form id="start-form">
+      <label for="name">Máquina</label>
+      <input id="name" maxlength="160" autocomplete="off" required>
+      <label for="condition">Condição</label>
+      <input id="condition" maxlength="160" list="conditions" autocomplete="off" placeholder="Opcional">
+      <datalist id="conditions"><option value="Ligada, com carga"><option value="Ligada, sem carga"><option value="Desligada"></datalist>
+      <label for="notes">Observações</label>
+      <textarea id="notes" maxlength="2000" placeholder="Opcional"></textarea>
+      <button class="primary" id="start" type="submit">Iniciar coleta</button>
+      <p class="error" id="start-error" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <section>
+    <h2>Agora</h2>
+    <div class="row"><span>Gateway</span><strong id="gateway-state"></strong></div>
+    <div class="row"><span>Wi-Fi do gateway</span><span id="gateway-wifi"></span></div>
+    <div class="row"><span>Gravador do gateway</span><span id="gateway-spool"></span></div>
+    <div class="row" id="device-row" hidden><span>Transmissor</span><span><select id="device" aria-label="Transmissor"></select></span></div>
+    <div class="row"><span>Estado do transmissor</span><strong id="device-state"></strong></div>
+    <div class="row"><span>Sinal de rádio</span><strong id="device-signal"></strong></div>
+    <div class="row"><span>Vibração (RMS Z)</span><span id="device-rms"></span></div>
+    <div class="row"><span>Temperatura do sensor</span><span id="device-temp"></span></div>
+  </section>
+
+  <section>
+    <h2>Intervalo de captura</h2>
+    <form id="cycle-form" class="inline">
+      <div>
+        <label for="cycle" style="margin-top:0">Segundos entre capturas</label>
+        <input id="cycle" type="number" inputmode="numeric" min="1" max="3600" required>
+      </div>
+      <button type="submit" id="cycle-save">Aplicar</button>
+    </form>
+    <p class="note" id="cycle-state"></p>
+    <p class="error" id="raw-off" role="alert" hidden></p>
+    <p class="error" id="cycle-error" role="alert" hidden></p>
+  </section>
+
+  <section>
+    <h2>Últimas leituras</h2>
+    <table>
+      <thead><tr><th scope="col">Hora</th><th scope="col">RMS Z (g)</th><th scope="col">Sinal (dBm)</th><th scope="col">SNR (dB)</th></tr></thead>
+      <tbody id="readings"></tbody>
+    </table>
+    <p class="note" id="readings-empty" hidden>Nenhuma leitura deste transmissor.</p>
+  </section>
+
+  <section id="past-section" hidden>
+    <h2>Coletas anteriores</h2>
+    <div id="past"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const NO_DATA = 'sem dado';
+const POLL_MS = 5000;
+const state = { gateways: [], devices: [], collections: [], device: null, config: null, open: null, summary: null };
+
+function saved(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function save(key, value) {
+  try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch { /* a sessão vale até recarregar */ }
+}
+let token = saved('kaelix.token');
+
+class ApiError extends Error {}
+class Offline extends Error {}
+
+async function api(method, path, body) {
+  let response;
+  try {
+    response = await fetch(path, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch { throw new Offline(); }
+  if (response.status === 401 && path !== '/api/v1/auth/login') { showLogin(); throw new ApiError('Entre novamente.'); }
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { /* resposta sem JSON */ }
+  if (!response.ok) {
+    const error = data && data.error;
+    const details = error && Array.isArray(error.details) ? error.details.map(d => d.reason).join(' ') : '';
+    if (response.status === 401) throw new ApiError('E-mail ou senha incorretos.');
+    if (response.status === 429) throw new ApiError('Muitas tentativas. Espere um minuto.');
+    throw new ApiError(details || (error && error.message) || 'O servidor recusou o pedido.');
+  }
+  return data;
+}
+
+function say(id, message) { const el = $(id); el.textContent = message || ''; el.hidden = !message; }
+function failure(error) { return error instanceof Offline ? 'Sem resposta do computador.' : error.message; }
+function setTone(el, text, tone) { el.textContent = text; el.className = tone || ''; }
+function number(value, digits) { return value === null || value === undefined || !Number.isFinite(value) ? NO_DATA : value.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits }); }
+function clock(iso) { return iso ? new Date(iso).toLocaleTimeString('pt-BR') : NO_DATA; }
+function ageSeconds(iso) { return iso ? Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000) : Infinity; }
+function ago(seconds) {
+  if (!Number.isFinite(seconds)) return 'nunca';
+  if (seconds < 90) return 'há ' + Math.round(seconds) + ' s';
+  if (seconds < 5400) return 'há ' + Math.round(seconds / 60) + ' min';
+  return 'há ' + (seconds / 3600).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' h';
+}
+function duration(seconds) {
+  const s = Math.max(0, Math.floor(seconds));
+  const pad = n => String(n).padStart(2, '0');
+  return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+}
+function bytes(value) {
+  if (value === null || value === undefined) return NO_DATA;
+  return value < 1048576 ? Math.round(value / 1024) + ' KB' : (value / 1048576).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' MB';
+}
+function measuredAt(m) { return m.estimated_received_at || m.gateway_received_at || m.ingested_at; }
+
+function showLogin() {
+  token = null; save('kaelix.token', null);
+  $('app-view').hidden = true; $('logout').hidden = true; $('login-view').hidden = false;
+}
+function showApp() { $('login-view').hidden = true; $('app-view').hidden = false; $('logout').hidden = false; }
+
+function chooseGateway() {
+  return state.gateways.slice().sort((a, b) => ageSeconds(a.last_heartbeat_at) - ageSeconds(b.last_heartbeat_at))[0] || null;
+}
+function chooseDevice() {
+  const wanted = saved('kaelix.device');
+  const found = state.devices.find(d => d.id === wanted);
+  if (found) return found;
+  return state.devices.slice().sort((a, b) => ageSeconds(a.latest && a.latest.ingested_at) - ageSeconds(b.latest && b.latest.ingested_at))[0] || null;
+}
+
+async function refresh() {
+  const [gateways, devices, collections] = await Promise.all([api('GET', '/api/v1/gateways'), api('GET', '/api/v1/devices'), api('GET', '/api/v1/collections')]);
+  state.gateways = gateways.items || []; state.devices = devices.items || []; state.collections = collections.items || [];
+  state.device = chooseDevice();
+  state.open = state.device ? state.collections.find(c => c.device_id === state.device.id && !c.ended_at) || null : null;
+  const id = state.device && encodeURIComponent(state.device.id);
+  const [history, config, summary] = await Promise.all([
+    id ? api('GET', '/api/v1/devices/' + id + '/readings?limit=8') : null,
+    id ? api('GET', '/api/v1/devices/' + id + '/config') : null,
+    state.open ? api('GET', '/api/v1/collections/' + state.open.id + '/summary') : null,
+  ]);
+  state.history = history ? history.items || [] : [];
+  state.config = config;
+  state.summary = summary;
+}
+
+function renderGateway() {
+  const gateway = chooseGateway();
+  if (!gateway) { setTone($('gateway-state'), 'nenhum cadastrado', 'warn'); $('gateway-wifi').textContent = NO_DATA; $('gateway-spool').textContent = NO_DATA; return; }
+  const age = ageSeconds(gateway.last_heartbeat_at);
+  const interval = 90;
+  setTone($('gateway-state'), age <= interval ? 'conectado' : 'sem contato ' + ago(age), age <= interval ? 'ok' : 'bad');
+  const health = gateway.heartbeat && gateway.heartbeat.health;
+  $('gateway-wifi').textContent = health && health.ssid ? health.ssid + ', ' + health.wifi_rssi_dbm + ' dBm' : NO_DATA;
+  $('gateway-spool').textContent = health ? bytes(health.spool_used_bytes) + ' de ' + bytes(health.spool_capacity_bytes) : NO_DATA;
+}
+
+function renderDevice() {
+  const select = $('device');
+  const options = state.devices.map(d => d.id).join();
+  if (select.dataset.options !== options) {
+    select.dataset.options = options;
+    select.replaceChildren(...state.devices.map(d => new Option(d.id, d.id)));
+  }
+  $('device-row').hidden = state.devices.length < 2;
+  if (state.device) select.value = state.device.id;
+  const latest = state.device && state.device.latest;
+  const cycle = state.config && state.config.config ? state.config.config.cycle_interval_s : null;
+  if (!latest) {
+    setTone($('device-state'), 'sem leituras', 'warn');
+    setTone($('device-signal'), NO_DATA);
+    $('device-rms').textContent = NO_DATA; $('device-temp').textContent = NO_DATA;
+    return;
+  }
+  const age = ageSeconds(latest.ingested_at);
+  const fresh = age <= Math.max(45, (cycle || 15) * 3);
+  const resting = latest.flags !== undefined && (latest.flags & 16) !== 0;
+  // Cada reinício soma um boot: três nas últimas leituras não é um reinício comandado.
+  const boots = new Set((state.history || []).map(m => m.boot_count).filter(b => b !== undefined));
+  if (fresh && boots.size >= 3) setTone($('device-state'), 'reiniciando sem parar: confira a alimentação', 'bad');
+  else setTone($('device-state'), fresh ? (resting ? 'fora da rotina' : 'transmitindo') : 'sem leitura ' + ago(age), fresh ? 'ok' : 'bad');
+  const rssi = latest.rssi_dbm;
+  // Limites observados no ensaio: abaixo de -108 dBm, as rajadas começam a falhar.
+  const tone = rssi >= -95 ? 'ok' : rssi >= -108 ? 'warn' : 'bad';
+  const word = rssi >= -95 ? 'bom' : rssi >= -108 ? 'no limite' : 'fraco';
+  setTone($('device-signal'), Number.isFinite(rssi) ? word + ', ' + number(rssi, 0) + ' dBm' : NO_DATA, Number.isFinite(rssi) ? tone : '');
+  $('device-rms').textContent = Number.isFinite(latest.rms_g) ? number(latest.rms_g, 4) + ' g' : NO_DATA;
+  $('device-temp').textContent = Number.isFinite(latest.temperature_c) ? number(latest.temperature_c, 1) + ' °C' : NO_DATA;
+}
+
+function renderCycle() {
+  const current = state.config && state.config.config;
+  const input = $('cycle');
+  if (current && document.activeElement !== input && !input.dataset.dirty) input.value = current.cycle_interval_s;
+  const names = { pending: 'aguardando o próximo contato do transmissor', radiated: 'enviado, aguardando confirmação', applied: 'aplicado no transmissor' };
+  $('cycle-state').textContent = current ? (names[state.config.state] || state.config.state || '') : 'Sem configuração salva.';
+  say('raw-off', current && current.wave_every === 0 ? 'Sinal bruto desligado no transmissor: não inicie uma coleta agora.' : '');
+}
+
+function renderCollection() {
+  const open = state.open;
+  $('collection-open').hidden = !open;
+  $('collection-new').hidden = !!open;
+  if (!open) return;
+  $('open-name').textContent = open.name;
+  const parts = ['Início às ' + clock(open.started_at)];
+  if (open.condition) parts.push(open.condition);
+  $('open-meta').textContent = parts.join(' · ');
+  const summary = state.summary;
+  $('open-readings').textContent = summary ? summary.readings : NO_DATA;
+  $('open-waves').textContent = summary ? summary.waveforms - summary.waveforms_incomplete : NO_DATA;
+  setTone($('open-missing'), summary ? String(summary.sequence_missing) : NO_DATA, summary && summary.sequence_missing > 0 ? 'warn' : '');
+  $('open-delivery').textContent = summary && summary.rssi_dbm ? 'Sinal nesta coleta: média de ' + number(summary.rssi_dbm.avg, 0) + ' dBm, pior de ' + number(summary.rssi_dbm.min, 0) + ' dBm.' : '';
+  const expected = summary ? summary.readings - summary.readings_without_measurement : 0;
+  const sending = state.config && state.config.config && state.config.config.wave_every === 1;
+  const noWaves = summary && sending ? expected - summary.waveforms : 0;
+  // Uma onda ainda pode estar a caminho; mais que isso é sinal bruto perdido.
+  say('open-warning', noWaves > 3 ? noWaves + ' leituras sem sinal bruto. Confira a alimentação do transmissor e o sinal de rádio.' : '');
+  renderDuration();
+}
+function renderDuration() { if (state.open) $('open-duration').textContent = duration(ageSeconds(state.open.started_at)); }
+
+function renderReadings() {
+  const items = (state.history || []).slice().sort((a, b) => b.id - a.id);
+  $('readings-empty').hidden = items.length > 0;
+  $('readings').replaceChildren(...items.map(m => {
+    const row = document.createElement('tr');
+    for (const text of [clock(measuredAt(m)), Number.isFinite(m.rms_g) ? number(m.rms_g, 4) : '–', number(m.rssi_dbm, 0), number(m.snr_db, 1)]) {
+      const cell = document.createElement('td'); cell.textContent = text; row.append(cell);
+    }
+    return row;
+  }));
+}
+
+const expanded = new Map();
+function renderPast() {
+  const items = state.collections.filter(c => c.ended_at).sort((a, b) => new Date(b.started_at) - new Date(a.started_at)).slice(0, 8);
+  $('past-section').hidden = items.length === 0;
+  $('past').replaceChildren(...items.flatMap(c => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'past'; button.setAttribute('aria-expanded', String(expanded.has(c.id)));
+    const title = document.createElement('span'); title.textContent = c.name;
+    const meta = document.createElement('small');
+    meta.textContent = new Date(c.started_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) + ', ' + duration((new Date(c.ended_at) - new Date(c.started_at)) / 1000);
+    button.append(title, meta);
+    button.addEventListener('click', () => togglePast(c.id));
+    const nodes = [button];
+    const summary = expanded.get(c.id);
+    if (summary) {
+      const box = document.createElement('div'); box.className = 'detail';
+      const lines = summary.error ? [summary.error] : [
+        summary.readings + ' leituras, ' + summary.sequence_missing + ' perdidas',
+        (summary.waveforms - summary.waveforms_incomplete) + ' ondas completas, ' + summary.waveforms_incomplete + ' incompletas',
+        summary.rssi_dbm ? 'Sinal: média de ' + number(summary.rssi_dbm.avg, 0) + ' dBm, pior de ' + number(summary.rssi_dbm.min, 0) + ' dBm' : 'Sem dados de sinal',
+      ];
+      for (const line of lines) { const p = document.createElement('p'); p.className = 'note'; p.textContent = line; box.append(p); }
+      nodes.push(box);
+    }
+    return nodes;
+  }));
+}
+async function togglePast(id) {
+  if (expanded.has(id)) { expanded.delete(id); renderPast(); return; }
+  try { expanded.set(id, await api('GET', '/api/v1/collections/' + id + '/summary')); }
+  catch (error) { expanded.set(id, { error: failure(error) }); }
+  renderPast();
+}
+
+function render() { renderGateway(); renderDevice(); renderCycle(); renderCollection(); renderReadings(); renderPast(); }
+
+let polling = false;
+async function poll() {
+  if (polling || !token) return;
+  polling = true;
+  try { await refresh(); $('offline').hidden = true; render(); }
+  catch (error) { if (error instanceof Offline) $('offline').hidden = false; }
+  finally { polling = false; }
+}
+
+$('login-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  say('login-error', '');
+  try {
+    const data = await api('POST', '/api/v1/auth/login', { email: $('email').value, password: $('password').value });
+    token = data.access_token; save('kaelix.token', token);
+    $('password').value = '';
+    showApp(); poll();
+  } catch (error) { say('login-error', failure(error)); }
+});
+
+$('logout').addEventListener('click', async () => {
+  try { await api('POST', '/api/v1/auth/logout'); } catch { /* a sessão expira sozinha */ }
+  showLogin();
+});
+
+$('device').addEventListener('change', event => { save('kaelix.device', event.target.value); $('cycle').dataset.dirty = ''; poll(); });
+
+$('start-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  say('start-error', '');
+  if (!state.device) { say('start-error', 'Nenhum transmissor encontrado.'); return; }
+  $('start').disabled = true;
+  try {
+    await api('POST', '/api/v1/collections', { name: $('name').value, device_id: state.device.id, condition: $('condition').value, notes: $('notes').value });
+    $('name').value = ''; $('condition').value = ''; $('notes').value = '';
+    await poll();
+  } catch (error) { say('start-error', failure(error)); }
+  finally { $('start').disabled = false; }
+});
+
+$('stop').addEventListener('click', async () => {
+  const open = state.open;
+  if (!open || !window.confirm('Encerrar a coleta "' + open.name + '"?')) return;
+  say('stop-error', '');
+  $('stop').disabled = true;
+  try {
+    await api('PUT', '/api/v1/collections/' + open.id, { name: open.name, condition: open.condition, notes: open.notes, ended_at: new Date().toISOString() });
+    await poll();
+  } catch (error) { say('stop-error', failure(error)); }
+  finally { $('stop').disabled = false; }
+});
+
+$('cycle').addEventListener('input', event => { event.target.dataset.dirty = '1'; });
+$('cycle-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  say('cycle-error', '');
+  const current = state.config && (state.config.config || state.config.defaults);
+  if (!state.device || !current) { say('cycle-error', 'Configuração indisponível.'); return; }
+  const { version, ...config } = current;
+  config.cycle_interval_s = Number($('cycle').value);
+  $('cycle-save').disabled = true;
+  try {
+    await api('PUT', '/api/v1/devices/' + encodeURIComponent(state.device.id) + '/config', config);
+    $('cycle').dataset.dirty = '';
+    await poll();
+  } catch (error) { say('cycle-error', failure(error)); }
+  finally { $('cycle-save').disabled = false; }
+});
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+setInterval(poll, POLL_MS);
+setInterval(renderDuration, 1000);
+if (token) { showApp(); poll(); } else { showLogin(); }
+</script>
+</body>
+</html>

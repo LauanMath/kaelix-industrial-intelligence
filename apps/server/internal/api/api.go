@@ -19,27 +19,55 @@ import (
 )
 
 type API struct {
-	store    *store.Store
-	logger   *slog.Logger
-	loginMu  sync.Mutex
-	attempts map[string]attempt
+	store       *store.Store
+	logger      *slog.Logger
+	loginMu     sync.Mutex
+	attempts    map[string]attempt
+	fingerprint string
 }
 type attempt struct {
 	Count int
 	Start time.Time
 }
 
+// Options configures the handler with all routes.
+type Options struct {
+	// TLSFingerprint is what GET /tls/fingerprint returns.
+	TLSFingerprint string
+}
+
+// New returns the handler with all routes, for the local listener.
 func New(s *store.Store, logger *slog.Logger) http.Handler {
+	return NewWithOptions(s, logger, Options{})
+}
+
+// NewGateway returns the handler of the network listener: only gateway routes and /healthz.
+func NewGateway(s *store.Store, logger *slog.Logger) http.Handler {
 	a := &API{store: s, logger: logger, attempts: map[string]attempt{}}
 	mux := http.NewServeMux()
+	a.gatewayRoutes(mux)
+	return a.wrap(mux)
+}
+
+func (a *API) gatewayRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { write(w, 200, map[string]string{"status": "ok"}) })
+	mux.Handle("POST /api/v1/ingest/readings", a.gateway(http.HandlerFunc(a.ingest)))
+	mux.Handle("POST /api/v1/ingest/logs", a.gateway(http.HandlerFunc(a.ingestLogs)))
+	mux.Handle("POST /api/v1/ingest/heartbeat", a.gateway(http.HandlerFunc(a.heartbeat)))
+	mux.Handle("POST /api/v1/ingest/waveforms", a.gateway(http.HandlerFunc(a.ingestWaveform)))
+	mux.Handle("POST /api/v1/gateway/sync", a.gateway(http.HandlerFunc(a.gatewaySync)))
+	mux.Handle("GET /api/v1/gateway/firmware/{id}", a.gateway(http.HandlerFunc(a.gatewayFirmwareDownload)))
+}
+
+// NewWithOptions returns the handler with all routes.
+func NewWithOptions(s *store.Store, logger *slog.Logger, options Options) http.Handler {
+	a := &API{store: s, logger: logger, attempts: map[string]attempt{}, fingerprint: options.TLSFingerprint}
+	mux := http.NewServeMux()
+	a.gatewayRoutes(mux)
 	mux.HandleFunc("GET /readyz", a.ready)
 	mux.HandleFunc("POST /api/v1/auth/login", a.login)
 	mux.Handle("POST /api/v1/auth/logout", a.user(http.HandlerFunc(a.logout)))
-	mux.Handle("POST /api/v1/ingest/readings", a.gateway(http.HandlerFunc(a.ingest)))
-	mux.Handle("POST /api/v1/ingest/logs", a.gateway(http.HandlerFunc(a.ingestLogs)))
 	mux.Handle("GET /api/v1/gateways/{id}/logs", a.user(http.HandlerFunc(a.gatewayLogs)))
-	mux.Handle("POST /api/v1/ingest/heartbeat", a.gateway(http.HandlerFunc(a.heartbeat)))
 	mux.Handle("GET /api/v1/readings/recent",a.user(http.HandlerFunc(a.recentReadings)))
  mux.Handle("GET /api/v1/devices", a.user(http.HandlerFunc(a.devices)))
 	mux.Handle("POST /api/v1/devices", a.user(http.HandlerFunc(a.createDevice)))
@@ -52,6 +80,25 @@ func New(s *store.Store, logger *slog.Logger) http.Handler {
 	mux.Handle("GET /api/v1/gateways", a.user(http.HandlerFunc(a.gateways)))
 	mux.Handle("POST /api/v1/gateways", a.user(http.HandlerFunc(a.createGateway)))
 	mux.Handle("POST /api/v1/gateways/{id}/rotate-token", a.user(http.HandlerFunc(a.rotateGatewayToken)))
+	mux.Handle("GET /api/v1/devices/{id}/config", a.user(http.HandlerFunc(a.deviceConfig)))
+	mux.Handle("PUT /api/v1/devices/{id}/config", a.user(http.HandlerFunc(a.saveDeviceConfig)))
+	mux.Handle("GET /api/v1/devices/{id}/commands", a.user(http.HandlerFunc(a.deviceCommands)))
+	mux.Handle("POST /api/v1/devices/{id}/commands", a.user(http.HandlerFunc(a.createDeviceCommand)))
+	mux.Handle("GET /api/v1/devices/{id}/waveforms", a.user(http.HandlerFunc(a.deviceWaveforms)))
+	mux.Handle("GET /api/v1/waveforms/{id}", a.user(http.HandlerFunc(a.waveform)))
+	mux.Handle("GET /api/v1/gateways/{id}/config", a.user(http.HandlerFunc(a.gatewayConfig)))
+	mux.Handle("PUT /api/v1/gateways/{id}/config", a.user(http.HandlerFunc(a.saveGatewayConfig)))
+	mux.Handle("GET /api/v1/gateways/{id}/firmware", a.user(http.HandlerFunc(a.gatewayFirmwareStatus)))
+	mux.Handle("POST /api/v1/gateways/{id}/firmware", a.user(http.HandlerFunc(a.uploadGatewayFirmware)))
+	mux.Handle("GET /api/v1/collections", a.user(http.HandlerFunc(a.collections)))
+	mux.Handle("POST /api/v1/collections", a.user(http.HandlerFunc(a.createCollection)))
+	mux.Handle("PUT /api/v1/collections/{id}", a.user(http.HandlerFunc(a.updateCollection)))
+	mux.Handle("GET /api/v1/collections/{id}/summary", a.user(http.HandlerFunc(a.collectionSummary)))
+	mux.Handle("GET /api/v1/tls/fingerprint", a.user(http.HandlerFunc(a.tlsFingerprint)))
+	return a.wrap(mux)
+}
+
+func (a *API) wrap(mux *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -99,6 +146,9 @@ func decode(w http.ResponseWriter, r *http.Request, value any) bool {
 	if strings.HasPrefix(r.URL.Path, "/api/v1/ingest/") {
 		limit = 32 << 10
 	}
+	if r.URL.Path == "/api/v1/ingest/waveforms" {
+		limit = 128 << 10
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -132,6 +182,11 @@ func (a *API) fail(w http.ResponseWriter, err error) {
 		problem(w, 422, "validation_error", "heartbeat uptime or counters decreased within session")
 	case errors.Is(err, store.ErrUnauthorized):
 		problem(w, 401, "unauthorized", "invalid credentials")
+	case errors.Is(err, store.ErrCommandsExhausted):
+		write(w, 409, c.APIError{SchemaVersion: 1, Error: c.ErrorBody{Code: "EVENT_CONFLICT", Message: "command sequence exhausted", Retryable: false, Details: []c.ErrorDetail{{Path: "seq", Reason: "Este transmissor já usou todas as sequências de comando"}}}})
+	case errors.Is(err, store.ErrSecretsUnavailable):
+		a.logger.Error("secret key unavailable")
+		problem(w, 503, "unavailable", "secret key unavailable")
 	default:
 		a.logger.Error("database operation failed", "error", err)
 		problem(w, 503, "unavailable", "database operation unavailable; retry later")

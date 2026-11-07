@@ -27,7 +27,14 @@ var ErrConflict = errors.New("conflict")
 var ErrInvalidHeartbeat = errors.New("heartbeat uptime or counters decreased")
 var ErrUnauthorized = errors.New("unauthorized")
 
-type Store struct{ pool *pgxpool.Pool }
+// A user session lasts through field work, where a new login may not be convenient.
+const sessionLifetime = 30 * 24 * time.Hour
+
+type Store struct {
+	pool   *pgxpool.Pool
+	sealer Sealer
+}
+
 
 func Open(ctx context.Context, url string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, url)
@@ -135,7 +142,7 @@ func (s *Store) Login(ctx context.Context, email, password string) (string, time
 		return "", time.Time{}, ErrUnauthorized
 	}
 	token := NewToken()
-	expiry := time.Now().UTC().Add(24 * time.Hour)
+	expiry := time.Now().UTC().Add(sessionLifetime)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return "", time.Time{}, err

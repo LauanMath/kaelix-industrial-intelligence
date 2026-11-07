@@ -36,8 +36,7 @@ func (s *Store) Ingest(ctx context.Context, b c.ReadingBatch) (c.IngestResult, e
 		if err != nil {
 			return out, err
 		}
-		delay := b.UploadUptimeMS - r.GatewayRxUptimeMS
-		received := estimatedReception(now, delay, r.GatewayReceivedAt)
+		received, delay := receptionFor(now, b.PreviousSession, b.UploadUptimeMS, r.GatewayRxUptimeMS, r.GatewayReceivedAt)
 		status := "stored"
 		var id int64
 		err = tx.QueryRow(ctx, `INSERT INTO readings(gateway_id,gateway_session_id,event_seq,device_id,ingested_at,estimated_received_at,queue_delay_ms,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(gateway_id,gateway_session_id,event_seq) DO NOTHING RETURNING id`, b.GatewayID, b.GatewaySessionID, r.EventSeq, r.DeviceID, now, received, delay, payload).Scan(&id)
@@ -51,6 +50,8 @@ func (s *Store) Ingest(ctx context.Context, b c.ReadingBatch) (c.IngestResult, e
 			}
 			status = "duplicate"
 		} else if err != nil {
+			return out, err
+		} else if err = applyTelemetry(ctx, tx, b.GatewaySessionID, b.PreviousSession, r, now); err != nil {
 			return out, err
 		}
 		out.Acknowledged = append(out.Acknowledged, c.Acknowledgement{EventSeq: r.EventSeq, Status: status})

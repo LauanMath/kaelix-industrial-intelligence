@@ -86,5 +86,10 @@ func (s *Store) SaveHeartbeat(ctx context.Context, h c.Heartbeat) (c.HeartbeatRe
 	return out, tx.Commit(ctx)
 }
 func countersDecrease(old, new c.HeartbeatCounters) bool {
-	return new.LoRaValid < old.LoRaValid || new.LoRaRejected < old.LoRaRejected || new.SPIErrors < old.SPIErrors || new.HTTPFailedAttempts < old.HTTPFailedAttempts || new.ReadingsAcknowledged < old.ReadingsAcknowledged || new.QueueDropped < old.QueueDropped
+	return new.LoRaValid < old.LoRaValid || new.LoRaRejected < old.LoRaRejected || new.SPIErrors < old.SPIErrors || new.HTTPFailedAttempts < old.HTTPFailedAttempts || new.ReadingsAcknowledged < old.ReadingsAcknowledged || new.QueueDropped < old.QueueDropped || optionalDecrease(old.SpoolDropped, new.SpoolDropped) || optionalDecrease(old.WaveformsAcknowledged, new.WaveformsAcknowledged)
+}
+
+// A counter absent from either snapshot says nothing about the other.
+func optionalDecrease(old, new *int64) bool {
+	return old != nil && new != nil && *new < *old
 }
