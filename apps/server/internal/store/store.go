@@ -35,7 +35,6 @@ type Store struct {
 	sealer Sealer
 }
 
-
 func Open(ctx context.Context, url string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {

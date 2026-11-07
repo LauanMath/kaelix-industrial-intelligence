@@ -165,9 +165,23 @@ func (s *Store) History(ctx context.Context, device string, f HistoryFilter) (c.
 	return page, nil
 }
 
-func (s *Store) RecentReadings(ctx context.Context)([]c.Measurement,error){
- rows,err:=s.pool.Query(ctx,`SELECT id,gateway_id,gateway_session_id,payload,ingested_at,estimated_received_at,queue_delay_ms FROM readings ORDER BY ingested_at DESC,id DESC LIMIT 50`);if err!=nil{return nil,err};defer rows.Close()
- out:=[]c.Measurement{}
- for rows.Next(){var m c.Measurement;var raw []byte;if err=rows.Scan(&m.ID,&m.GatewayID,&m.GatewaySessionID,&raw,&m.IngestedAt,&m.EstimatedReceivedAt,&m.QueueDelayMS);err!=nil{return nil,err};if err=json.Unmarshal(raw,&m.Reading);err!=nil{return nil,err};out=append(out,m)}
- return out,rows.Err()
+func (s *Store) RecentReadings(ctx context.Context) ([]c.Measurement, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,gateway_id,gateway_session_id,payload,ingested_at,estimated_received_at,queue_delay_ms FROM readings ORDER BY ingested_at DESC,id DESC LIMIT 50`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []c.Measurement{}
+	for rows.Next() {
+		var m c.Measurement
+		var raw []byte
+		if err = rows.Scan(&m.ID, &m.GatewayID, &m.GatewaySessionID, &raw, &m.IngestedAt, &m.EstimatedReceivedAt, &m.QueueDelayMS); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(raw, &m.Reading); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }

@@ -68,8 +68,8 @@ func NewWithOptions(s *store.Store, logger *slog.Logger, options Options) http.H
 	mux.HandleFunc("POST /api/v1/auth/login", a.login)
 	mux.Handle("POST /api/v1/auth/logout", a.user(http.HandlerFunc(a.logout)))
 	mux.Handle("GET /api/v1/gateways/{id}/logs", a.user(http.HandlerFunc(a.gatewayLogs)))
-	mux.Handle("GET /api/v1/readings/recent",a.user(http.HandlerFunc(a.recentReadings)))
- mux.Handle("GET /api/v1/devices", a.user(http.HandlerFunc(a.devices)))
+	mux.Handle("GET /api/v1/readings/recent", a.user(http.HandlerFunc(a.recentReadings)))
+	mux.Handle("GET /api/v1/devices", a.user(http.HandlerFunc(a.devices)))
 	mux.Handle("POST /api/v1/devices", a.user(http.HandlerFunc(a.createDevice)))
 	mux.Handle("PUT /api/v1/devices/{id}", a.user(http.HandlerFunc(a.updateDevice)))
 	mux.Handle("GET /api/v1/devices/{id}/readings", a.user(http.HandlerFunc(a.deviceHistory)))
@@ -542,6 +542,11 @@ func (a *API) history(w http.ResponseWriter, r *http.Request, device string) {
 	write(w, 200, page)
 }
 
-func (a *API) recentReadings(w http.ResponseWriter,r *http.Request){
- items,err:=a.store.RecentReadings(r.Context());if err!=nil{a.fail(w,err);return};write(w,200,map[string]any{"items":items})
+func (a *API) recentReadings(w http.ResponseWriter, r *http.Request) {
+	items, err := a.store.RecentReadings(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	write(w, 200, map[string]any{"items": items})
 }
