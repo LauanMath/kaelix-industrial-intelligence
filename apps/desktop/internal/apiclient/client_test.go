@@ -3,6 +3,7 @@ package apiclient
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -54,5 +55,55 @@ func TestCancellation(t *testing.T) {
 	cancel()
 	if err := cl.Request(ctx, "GET", "/", nil, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation: %v", err)
+	}
+}
+
+func TestValidationReasonsReachTheUser(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(422)
+		_, _ = w.Write([]byte(`{"schema_version":1,"error":{"code":"INVALID_REQUEST","message":"failed","retryable":false,"details":[{"path":"cycle_interval_s","reason":"O intervalo mínimo é de 9 s","minimum":9},{"path":"dlpf","reason":"Filtro inválido"}]}}`))
+	}))
+	defer server.Close()
+	cl, _ := New(server.URL, "")
+	err := cl.Request(context.Background(), "PUT", "/x", map[string]int{"a": 1}, nil)
+	if err == nil || err.Error() != "O intervalo mínimo é de 9 s; Filtro inválido" {
+		t.Fatalf("reasons: %v", err)
+	}
+}
+func TestReachableAndUpload(t *testing.T) {
+	var contentType string
+	var size int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/upload" {
+			contentType = r.Header.Get("Content-Type")
+			body, _ := io.ReadAll(r.Body)
+			size = len(body)
+			w.WriteHeader(201)
+			_, _ = w.Write([]byte(`{"size":4}`))
+			return
+		}
+		w.WriteHeader(200)
+	}))
+	if !Reachable(context.Background(), server.URL) {
+		t.Fatal("running API not reachable")
+	}
+	cl, _ := New(server.URL, "token")
+	var out struct {
+		Size int `json:"size"`
+	}
+	if err := cl.Upload(context.Background(), "/upload", "application/octet-stream", []byte{1, 2, 3, 4}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if contentType != "application/octet-stream" || size != 4 || out.Size != 4 {
+		t.Fatalf("upload: %s %d %+v", contentType, size, out)
+	}
+	base := server.URL
+	server.Close()
+	if Reachable(context.Background(), base) {
+		t.Fatal("stopped API reachable")
+	}
+	if Reachable(context.Background(), "not a url") {
+		t.Fatal("invalid address reachable")
 	}
 }

@@ -25,9 +25,10 @@ func main() {
 		appMenu.Append(menu.AppMenu())
 	}
 	viewMenu := appMenu.AddSubmenu("Área de trabalho")
-	for index, label := range []string{"Monitoramento", "Motores", "Gateways", "Eventos", "Configurações", "Dashboard", "Perfil"} {
+	for index, label := range []string{"Monitoramento", "Motores", "Gateways", "Transmissores", "Coletas", "Sinal", "Eventos", "Configurações", "Dashboard", "Perfil"} {
 		workspace := index
-		viewMenu.AddText(label, keys.CmdOrCtrl(string(rune('1'+index))), func(_ *menu.CallbackData) {
+		// The digit row goes from 1 to 9 and then 0.
+		viewMenu.AddText(label, keys.CmdOrCtrl(string(rune('0'+(index+1)%10))), func(_ *menu.CallbackData) {
 			if app.ctx != nil {
 				wruntime.EventsEmit(app.ctx, "workspace:select", workspace)
 			}

@@ -33,6 +33,9 @@ func (a *App) restoreAPI() {
 	if err != nil {
 		return
 	}
+	if saved.Endpoint == "" {
+		saved.Endpoint = apiclient.DefaultEndpoint
+	}
 	a.connection = ConnectionInfo{Endpoint: saved.Endpoint, Email: saved.Email, ExpiresAt: saved.ExpiresAt}
 	expiry, err := time.Parse(time.RFC3339Nano, saved.ExpiresAt)
 	if saved.Token == "" || err != nil || !expiry.After(time.Now()) {
@@ -49,13 +52,20 @@ func (a *App) restoreAPI() {
 func (a *App) GetConnection() ConnectionInfo {
 	a.apiMu.RLock()
 	defer a.apiMu.RUnlock()
-	return a.connection
+	info := a.connection
+	if info.Endpoint == "" {
+		info.Endpoint = apiclient.DefaultEndpoint
+	}
+	return info
 }
 func (a *App) ConnectAPI(endpoint, email, password string) (ConnectionInfo, error) {
 	a.connectionMu.Lock()
 	defer a.connectionMu.Unlock()
 	if a.store == nil {
 		return ConnectionInfo{}, errors.New("banco local indisponível")
+	}
+	if strings.TrimSpace(endpoint) == "" {
+		endpoint = apiclient.DefaultEndpoint
 	}
 	cl, err := apiclient.New(endpoint, "")
 	if err != nil {

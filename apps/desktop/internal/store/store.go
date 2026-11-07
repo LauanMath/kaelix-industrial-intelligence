@@ -49,7 +49,7 @@ func Open(path string) (*Store, error) {
 	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version > 3 {
+	if version > 4 {
 		return fail(errors.New("versão do banco não suportada"))
 	}
 	if version == 0 {
@@ -73,6 +73,23 @@ func Open(path string) (*Store, error) {
 	}
 	if version < 3 {
 		script, e := migrations.ReadFile("migrations/003_api_connection.sql")
+		if e != nil {
+			return fail(e)
+		}
+		tx, e := db.Begin()
+		if e != nil {
+			return fail(e)
+		}
+		if _, e = tx.Exec(string(script)); e != nil {
+			tx.Rollback()
+			return fail(e)
+		}
+		if e = tx.Commit(); e != nil {
+			return fail(e)
+		}
+	}
+	if version < 4 {
+		script, e := migrations.ReadFile("migrations/004_gateway_admin.sql")
 		if e != nil {
 			return fail(e)
 		}
@@ -139,5 +156,20 @@ func (s *Store) APISession(ctx context.Context) (APISession, error) {
 }
 func (s *Store) SaveAPISession(ctx context.Context, v APISession) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE api_connection SET endpoint=?,email=?,token=?,expires_at=? WHERE id=1`, v.Endpoint, v.Email, v.Token, v.ExpiresAt)
+	return err
+}
+
+// GatewayAdminKey returns the key that authorizes a new pairing of a gateway on its own
+// network, or "" if this computer never paired it.
+func (s *Store) GatewayAdminKey(ctx context.Context, gateway string) (string, error) {
+	var key string
+	err := s.db.QueryRowContext(ctx, `SELECT admin_key FROM gateway_admin WHERE gateway_id=?`, gateway).Scan(&key)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return key, err
+}
+func (s *Store) SaveGatewayAdminKey(ctx context.Context, gateway, key string) error {
+	_, err := s.db.ExecContext(ctx, `INSERT INTO gateway_admin(gateway_id,admin_key) VALUES(?,?) ON CONFLICT(gateway_id) DO UPDATE SET admin_key=excluded.admin_key`, gateway, key)
 	return err
 }

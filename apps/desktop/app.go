@@ -20,6 +20,9 @@ type App struct {
 	apiCtx       context.Context
 	apiCancel    context.CancelFunc
 	connection   ConnectionInfo
+	provisionMu  sync.Mutex
+	provision    *provisionState
+	linkBaseURL  string
 }
 
 func NewApp() *App { return &App{} }
