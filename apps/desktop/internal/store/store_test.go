@@ -103,3 +103,47 @@ func TestAPISessionMigrationAndReopen(t *testing.T) {
 		t.Fatalf("session did not survive reopen: %+v %v", got, err)
 	}
 }
+
+func TestGatewayAdminKeySurvivesReopen(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "kaelix.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if key, err := db.GatewayAdminKey(ctx, "unknown"); err != nil || key != "" {
+		t.Fatalf("unknown gateway: %q %v", key, err)
+	}
+	if err = db.SaveGatewayAdminKey(ctx, "a", "first"); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.SaveGatewayAdminKey(ctx, "a", "second"); err != nil {
+		t.Fatal(err)
+	}
+	// A database of the previous version gains the table and keeps its session.
+	if _, err = db.db.Exec(`DROP TABLE gateway_admin; PRAGMA user_version=3`); err != nil {
+		t.Fatal(err)
+	}
+	saved := APISession{Endpoint: "http://127.0.0.1:8080", Email: "operator@example.com"}
+	if err = db.SaveAPISession(ctx, saved); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if db, err = Open(path); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := db.APISession(ctx); err != nil || got != saved {
+		t.Fatalf("session: %+v %v", got, err)
+	}
+	if err = db.SaveGatewayAdminKey(ctx, "a", "third"); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if db, err = Open(path); err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if key, err := db.GatewayAdminKey(ctx, "a"); err != nil || key != "third" {
+		t.Fatalf("key: %q %v", key, err)
+	}
+}

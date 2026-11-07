@@ -22,6 +22,33 @@ type Client struct {
 	HTTP    *http.Client
 }
 
+// DefaultEndpoint is the API on this computer, reachable on any Wi-Fi network, including
+// while the computer is on the gateway's own network.
+const DefaultEndpoint = "http://127.0.0.1:8080"
+
+const uploadTimeout = 2 * time.Minute
+
+// Reachable tells whether an API answers at this address, without credentials.
+func Reachable(ctx context.Context, endpoint string) bool {
+	base, err := NormalizeURL(endpoint)
+	if err != nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/healthz", nil)
+	if err != nil {
+		return false
+	}
+	client := http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
 var ErrUnauthorized = errors.New("sessão expirada ou credencial inválida; conecte-se novamente")
 
 func NormalizeURL(value string) (string, error) {
@@ -67,7 +94,28 @@ func (cl *Client) Request(ctx context.Context, method, path string, body, out an
 	if cl.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+cl.Token)
 	}
-	resp, err := cl.HTTP.Do(req)
+	return cl.finish(ctx, cl.HTTP, req, out)
+}
+
+// Upload sends a raw body. It has its own, longer limit: a firmware image takes longer than
+// any JSON request.
+func (cl *Client) Upload(ctx context.Context, path, contentType string, body []byte, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cl.BaseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return errors.New("requisição inválida")
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentType)
+	if cl.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+cl.Token)
+	}
+	client := *cl.HTTP
+	client.Timeout = uploadTimeout
+	return cl.finish(ctx, &client, req, out)
+}
+
+func (cl *Client) finish(ctx context.Context, client *http.Client, req *http.Request, out any) error {
+	resp, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -85,6 +133,10 @@ func (cl *Client) Request(ctx context.Context, method, path string, body, out an
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var failure c.APIError
 		_ = json.Unmarshal(raw, &failure)
+		// Field reasons say exactly what to fix, such as the minimum cycle interval.
+		if reasons := detailReasons(failure.Error.Details); reasons != "" {
+			return errors.New(reasons)
+		}
 		switch failure.Error.Code {
 		case "EVENT_CONFLICT":
 			return errors.New("identificador já cadastrado ou dispositivo associado a outro motor")
@@ -102,6 +154,16 @@ func (cl *Client) Request(ctx context.Context, method, path string, body, out an
 		return errors.New("resposta da API incompatível com o contrato")
 	}
 	return nil
+}
+
+func detailReasons(details []c.ErrorDetail) string {
+	reasons := make([]string, 0, len(details))
+	for _, detail := range details {
+		if detail.Reason != "" {
+			reasons = append(reasons, detail.Reason)
+		}
+	}
+	return strings.Join(reasons, "; ")
 }
 
 type LoginResult struct {
@@ -132,4 +194,29 @@ func (cl *Client) History(ctx context.Context, device, from, to, cursor string, 
 	var page c.HistoryPage
 	err := cl.Request(ctx, "GET", "/api/v1/devices/"+url.PathEscape(device)+"/readings?"+q.Encode(), nil, &page)
 	return page, err
+}
+
+// Waveforms lists one page of windows, without samples.
+func (cl *Client) Waveforms(ctx context.Context, device, from, to, cursor string, limit int) (c.WaveformPage, error) {
+	q := url.Values{}
+	if from != "" {
+		q.Set("from", from)
+	}
+	if to != "" {
+		q.Set("to", to)
+	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
+	q.Set("limit", fmt.Sprint(limit))
+	var page c.WaveformPage
+	err := cl.Request(ctx, "GET", "/api/v1/devices/"+url.PathEscape(device)+"/waveforms?"+q.Encode(), nil, &page)
+	return page, err
+}
+
+// Waveform returns a window with its samples.
+func (cl *Client) Waveform(ctx context.Context, id int64) (c.Waveform, error) {
+	var out c.Waveform
+	err := cl.Request(ctx, "GET", fmt.Sprintf("/api/v1/waveforms/%d", id), nil, &out)
+	return out, err
 }

@@ -51,8 +51,11 @@ func validateBatch(b c.ReadingBatch, _ time.Time) error {
 		if r.GatewayRxUptimeMS < 0 || r.GatewayRxUptimeMS > b.UploadUptimeMS {
 			return bad("gateway_rx_uptime_ms", "must not exceed upload_uptime_ms")
 		}
-		if r.PacketVersion != 2 {
-			return bad("packet_version", "must be 2")
+		if r.PacketVersion != 2 && r.PacketVersion != 3 {
+			return bad("packet_version", "must be 2 or 3")
+		}
+		if field := firstV3Field(r); r.PacketVersion == 2 && field != "" {
+			return bad(field, "must be null or absent in packet version 2")
 		}
 		if !deviceID.MatchString(r.DeviceID) {
 			return bad("device_id", "must be eight uppercase hexadecimal characters")
@@ -63,7 +66,7 @@ func validateBatch(b c.ReadingBatch, _ time.Time) error {
 		if r.State != "NORMAL" && r.State != "ANOMALOUS" && r.State != "UNKNOWN" {
 			return bad("state", "unsupported state")
 		}
-		for name, value := range map[string]*float64{"rms_g": r.RMSG, "temperature_c": r.TemperatureC, "rssi_dbm": r.RSSIDBm, "snr_db": r.SNRDB} {
+		for name, value := range map[string]*float64{"rms_g": r.RMSG, "temperature_c": r.TemperatureC, "rssi_dbm": r.RSSIDBm, "snr_db": r.SNRDB, "rms_x_g": r.RMSXG, "rms_y_g": r.RMSYG, "kurtosis": r.Kurtosis, "crest_factor": r.CrestFactor, "dominant_freq_hz": r.DominantFreqHz, "sample_rate_hz": r.SampleRateHz} {
 			if value != nil && (math.IsNaN(*value) || math.IsInf(*value, 0)) {
 				return bad(name, "must be finite")
 			}
@@ -74,6 +77,9 @@ func validateBatch(b c.ReadingBatch, _ time.Time) error {
 		if r.RMSG != nil && *r.RMSG < 0 {
 			return bad("rms_g", "cannot be negative")
 		}
+		if (r.RMSXG != nil && *r.RMSXG < 0) || (r.RMSYG != nil && *r.RMSYG < 0) {
+			return bad("rms_x_g", "RMS cannot be negative")
+		}
 		if r.RSSIDBm == nil || r.SNRDB == nil {
 			return bad("rssi_dbm", "RSSI and SNR must be finite numbers")
 		}
@@ -83,8 +89,27 @@ func validateBatch(b c.ReadingBatch, _ time.Time) error {
 				return bad("gateway_received_at", "must be UTC")
 			}
 		}
+		if r.DeviceTime != nil {
+			_, offset := r.DeviceTime.Zone()
+			if offset != 0 {
+				return bad("device_time", "must be UTC")
+			}
+		}
 	}
 	return nil
+}
+
+// firstV3Field names the first field a packet v2 cannot carry, if any.
+func firstV3Field(r c.Reading) string {
+	for _, field := range []struct {
+		name string
+		set  bool
+	}{{"boot_count", r.BootCount != nil}, {"command_seq", r.CommandSeq != nil}, {"rms_x_g", r.RMSXG != nil}, {"rms_y_g", r.RMSYG != nil}, {"kurtosis", r.Kurtosis != nil}, {"crest_factor", r.CrestFactor != nil}, {"dominant_freq_hz", r.DominantFreqHz != nil}, {"sample_rate_hz", r.SampleRateHz != nil}, {"config_version", r.ConfigVersion != nil}, {"reset_reason", r.ResetReason != nil}, {"flags", r.Flags != nil}, {"device_time", r.DeviceTime != nil}, {"uptime_s", r.UptimeS != nil}, {"wave_fragments", r.WaveFragments != nil}, {"wave_samples", r.WaveSamples != nil}, {"channels", r.Channels != nil}, {"tx_power_dbm", r.TxPowerDBm != nil}} {
+		if field.set {
+			return field.name
+		}
+	}
+	return ""
 }
 func validateHeartbeat(h c.Heartbeat) error {
 	if h.SchemaVersion != 1 {
@@ -110,6 +135,19 @@ func validateHeartbeat(h c.Heartbeat) error {
 			return invalid("counters."+name, "outside the safe integer range")
 		}
 	}
+	for name, value := range map[string]*int64{"counters.spool_dropped": h.Counters.SpoolDropped, "counters.waveforms_acknowledged": h.Counters.WaveformsAcknowledged, "health.spool_used_bytes": h.Health.SpoolUsedBytes, "health.spool_capacity_bytes": h.Health.SpoolCapacityBytes} {
+		if value != nil && (*value < 0 || *value > maxSafeInteger) {
+			return invalid(name, "outside the safe integer range")
+		}
+	}
+	if used, capacity := h.Health.SpoolUsedBytes, h.Health.SpoolCapacityBytes; used != nil && capacity != nil && *used > *capacity {
+		return invalid("health.spool_used_bytes", "exceeds the capacity")
+	}
+	for name, value := range map[string]*string{"health.ssid": h.Health.SSID, "health.ip": h.Health.IP, "health.reset_reason": h.Health.ResetReason} {
+		if value != nil && !shortText(*value, 64) {
+			return invalid(name, "must contain up to 64 characters")
+		}
+	}
 	if h.SentAt != nil {
 		_, offset := h.SentAt.Zone()
 		if offset != 0 {
@@ -117,6 +155,9 @@ func validateHeartbeat(h c.Heartbeat) error {
 		}
 	}
 	return nil
+}
+func shortText(s string, n int) bool {
+	return utf8.ValidString(s) && utf8.RuneCountInString(s) <= n && !strings.ContainsRune(s, 0)
 }
 func validateMotor(m *c.MotorInput) error {
 	m.Name = strings.TrimSpace(m.Name)

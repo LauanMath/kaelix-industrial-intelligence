@@ -37,6 +37,9 @@
       "items": {
         "$ref": "#/$defs/reading"
       }
+    },
+    "previous_session": {
+      "type": "boolean"
     }
   },
   "$defs": {
@@ -82,7 +85,10 @@
           ]
         },
         "packet_version": {
-          "const": 2
+          "enum": [
+            2,
+            3
+          ]
         },
         "device_id": {
           "type": "string",
@@ -129,6 +135,136 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 65535
+        },
+        "boot_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "command_seq": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "rms_x_g": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "rms_y_g": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "kurtosis": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "crest_factor": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "dominant_freq_hz": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sample_rate_hz": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "config_version": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "reset_reason": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "flags": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "device_time": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uptime_s": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "wave_fragments": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "wave_samples": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "channels": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "tx_power_dbm": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -128,
+          "maximum": 127
         }
       },
       "allOf": [
@@ -148,6 +284,73 @@
               "rms_g": {
                 "type": "number",
                 "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "packet_version": {
+                "const": 2
+              }
+            },
+            "required": [
+              "packet_version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "boot_count": {
+                "type": "null"
+              },
+              "command_seq": {
+                "type": "null"
+              },
+              "rms_x_g": {
+                "type": "null"
+              },
+              "rms_y_g": {
+                "type": "null"
+              },
+              "kurtosis": {
+                "type": "null"
+              },
+              "crest_factor": {
+                "type": "null"
+              },
+              "dominant_freq_hz": {
+                "type": "null"
+              },
+              "sample_rate_hz": {
+                "type": "null"
+              },
+              "config_version": {
+                "type": "null"
+              },
+              "reset_reason": {
+                "type": "null"
+              },
+              "flags": {
+                "type": "null"
+              },
+              "device_time": {
+                "type": "null"
+              },
+              "uptime_s": {
+                "type": "null"
+              },
+              "wave_fragments": {
+                "type": "null"
+              },
+              "wave_samples": {
+                "type": "null"
+              },
+              "channels": {
+                "type": "null"
+              },
+              "tx_power_dbm": {
+                "type": "null"
               }
             }
           }

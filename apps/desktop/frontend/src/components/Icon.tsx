@@ -1,4 +1,4 @@
-import { XIcon, UserCircleIcon, SquaresFourIcon, ChartLineIcon, CpuIcon, BroadcastIcon, ListBulletsIcon, SlidersHorizontalIcon, SidebarSimpleIcon, ExportIcon, MagnifyingGlassIcon, PlusIcon, MinusIcon, CrosshairIcon, InfoIcon, ArrowUpRightIcon } from '@phosphor-icons/react';
+import { XIcon, UserCircleIcon, SquaresFourIcon, ChartLineIcon, CpuIcon, BroadcastIcon, ListBulletsIcon, SlidersHorizontalIcon, SidebarSimpleIcon, ExportIcon, MagnifyingGlassIcon, PlusIcon, MinusIcon, CrosshairIcon, InfoIcon, ArrowUpRightIcon, CellTowerIcon, FoldersIcon, WaveSineIcon, TrashIcon, UploadIcon, ArrowClockwiseIcon } from '@phosphor-icons/react';
 const icons = {
  close: XIcon,
  profile: UserCircleIcon,
@@ -7,6 +7,7 @@ const icons = {
  sidebar: SidebarSimpleIcon, export: ExportIcon, search: MagnifyingGlassIcon,
  plus: PlusIcon, minus: MinusIcon, reset: CrosshairIcon, info: InfoIcon,
  arrow: ArrowUpRightIcon,
+ transmitters: CellTowerIcon, collections: FoldersIcon, signal: WaveSineIcon, trash: TrashIcon, upload: UploadIcon, refresh: ArrowClockwiseIcon,
 } as const;
 export function Icon({name}: {name:keyof typeof icons}) {
  const Component=icons[name];

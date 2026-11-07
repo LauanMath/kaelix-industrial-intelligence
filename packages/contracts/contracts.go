@@ -17,11 +17,42 @@ type Reading struct {
 	RSSIDBm           *float64   `json:"rssi_dbm"`
 	SNRDB             *float64   `json:"snr_db"`
 	PacketCRC16       *uint16    `json:"packet_crc16"`
+	// Packet v3 fields. They are omitted when empty, so a v2 reading stored before
+	// they existed still compares equal when the gateway retransmits it.
+	BootCount      *uint32    `json:"boot_count,omitempty"`
+	CommandSeq     *uint16    `json:"command_seq,omitempty"`
+	RMSXG          *float64   `json:"rms_x_g,omitempty"`
+	RMSYG          *float64   `json:"rms_y_g,omitempty"`
+	Kurtosis       *float64   `json:"kurtosis,omitempty"`
+	CrestFactor    *float64   `json:"crest_factor,omitempty"`
+	DominantFreqHz *float64   `json:"dominant_freq_hz,omitempty"`
+	SampleRateHz   *float64   `json:"sample_rate_hz,omitempty"`
+	ConfigVersion  *uint16    `json:"config_version,omitempty"`
+	ResetReason    *uint8     `json:"reset_reason,omitempty"`
+	Flags          *uint8     `json:"flags,omitempty"`
+	DeviceTime     *time.Time `json:"device_time,omitempty"`
+	UptimeS        *uint32    `json:"uptime_s,omitempty"`
+	WaveFragments  *uint8     `json:"wave_fragments,omitempty"`
+	WaveSamples    *uint16    `json:"wave_samples,omitempty"`
+	Channels       *uint8     `json:"channels,omitempty"`
+	TxPowerDBm     *int8      `json:"tx_power_dbm,omitempty"`
 }
+
+// Bits of Reading.Flags.
+const (
+	FlagTimeSynced     = 1 << 0
+	FlagWaveFollows    = 1 << 1
+	FlagAutoResponse   = 1 << 2
+	FlagConfigRejected = 1 << 3
+	FlagNoMeasurement  = 1 << 4
+	FlagSaturated      = 1 << 5
+)
+
 type ReadingBatch struct {
 	SchemaVersion    int       `json:"schema_version"`
 	GatewayID        string    `json:"gateway_id"`
 	GatewaySessionID string    `json:"gateway_session_id"`
+	PreviousSession  bool      `json:"previous_session,omitempty"`
 	UploadUptimeMS   int64     `json:"upload_uptime_ms"`
 	Readings         []Reading `json:"readings"`
 }
@@ -87,6 +118,12 @@ type HeartbeatHealth struct {
 	QueueCapacity    int    `json:"queue_capacity"`
 	FreeHeapBytes    uint32 `json:"free_heap_bytes"`
 	WifiRSSIDBm      *int64 `json:"wifi_rssi_dbm"`
+	// Optional, omitted when absent so earlier snapshots keep comparing equal.
+	SpoolUsedBytes     *int64  `json:"spool_used_bytes,omitempty"`
+	SpoolCapacityBytes *int64  `json:"spool_capacity_bytes,omitempty"`
+	SSID               *string `json:"ssid,omitempty"`
+	IP                 *string `json:"ip,omitempty"`
+	ResetReason        *string `json:"reset_reason,omitempty"`
 }
 type HeartbeatCounters struct {
 	LoRaValid            int64 `json:"lora_valid"`
@@ -95,6 +132,9 @@ type HeartbeatCounters struct {
 	HTTPFailedAttempts   int64 `json:"http_failed_attempts"`
 	ReadingsAcknowledged int64 `json:"readings_acknowledged"`
 	QueueDropped         int64 `json:"queue_dropped"`
+	// Optional and non-decreasing within a session, like the fields above.
+	SpoolDropped          *int64 `json:"spool_dropped,omitempty"`
+	WaveformsAcknowledged *int64 `json:"waveforms_acknowledged,omitempty"`
 }
 type Heartbeat struct {
 	SchemaVersion    int               `json:"schema_version"`
@@ -117,6 +157,8 @@ type HeartbeatResult struct {
 type ErrorDetail struct {
 	Path   string `json:"path"`
 	Reason string `json:"reason"`
+	// Minimum is the smallest accepted value when the field is below a calculated limit.
+	Minimum *int `json:"minimum,omitempty"`
 }
 type APIError struct {
 	SchemaVersion int       `json:"schema_version"`

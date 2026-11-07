@@ -1,31 +1,38 @@
-# Arquitetura da aplicação desktop e comunicação pela internet
+# Arquitetura da aplicação desktop
 
-Arquitetura e estado de implementação — 11/10/2026.
+Arquitetura e estado de implementação. O enlace de comando e coleta está especificado em
+[Comando e coleta sem cabo](comando-e-coleta.md), que é o contrato com o firmware e prevalece sobre o
+que este documento registrar de etapas anteriores.
 
-Stack escolhida pelo usuário: **Wails, Go e TypeScript**, com aplicação desktop multiplataforma. O enlace S3 → LoRa → C3 já recebeu pacotes válidos em bancada. A API Go e o PostgreSQL central estão implementados. O envio do C3 por HTTP na LAN está ativo, e o desktop consulta as medições reais
-pela API. Publicação HTTPS pela internet ainda é uma etapa posterior.
+Stack escolhida pelo usuário: **Wails, Go e TypeScript**, com aplicação desktop multiplataforma.
 
-## Fluxo principal
+## Montagem
+
+O computador vai a campo ligado à tomada, na mesma rede Wi-Fi do gateway. Não há túnel nem nuvem: a API
+e o PostgreSQL rodam no próprio Mac.
 
 ```mermaid
 flowchart LR
-    M[Motor: MPU + ESP32-S3] -->|LoRa: pacote v2 de 21 bytes| G[Gateway: RA-02 + ESP32-C3]
-    G -->|Wi-Fi + HTTPS: JSON| A[Servidor Go: API]
-    A --> B[(PostgreSQL)]
-    D[Desktop Wails: Go + TypeScript] -->|HTTPS: últimas leituras e histórico| A
-    A -->|Respostas JSON| D
+    T[Transmissor: MPU + ESP32-C3] -->|LoRa: telemetria e sinal bruto| G[Gateway: RA-02 + ESP32-S3]
+    G -->|LoRa: confirmação e configuração| T
+    G -->|HTTPS na rede local, porta 8443| A[Servidor Go: API no Mac]
+    A --> B[(PostgreSQL no Mac)]
+    D[Desktop Wails: Go + TypeScript] -->|HTTP em 127.0.0.1:8080| A
 ```
 
-O servidor permanece disponível para receber leituras mesmo com o desktop fechado. O gateway e o desktop iniciam conexões de saída com ele; o computador do usuário não precisa expor uma porta pública nem permanecer ligado para que as medições sejam armazenadas.
+O gateway encontra o Mac por mDNS (`_kaelix._tcp`) e fixa o certificado próprio pela impressão digital
+recebida no pareamento. O servidor recebe leituras com o desktop fechado, mas precisa do Mac ligado. Até
+lá, o gateway grava em flash o que recebe e só apaga o que a API confirmou.
 
-Primeira versão: gateway publica por HTTPS e desktop consulta a API a cada 2 segundos enquanto a tela de monitoramento está aberta. Esse intervalo é uma proposta para a bancada, onde há uma leitura aproximadamente a cada 11 segundos. Consultas de histórico são paginadas e feitas sob demanda. WebSocket pode substituir as consultas periódicas depois, mantendo HTTP para carregar o histórico e recuperar eventos após reconexão.
+O desktop consulta a API a cada 2 segundos enquanto a tela está aberta. Consultas de histórico são
+paginadas e feitas sob demanda.
 
 ## Responsabilidades
 
 | Componente | Responsabilidade |
 |---|---|
-| S3 | Coletar vibração, calcular indicadores e transmitir o pacote LoRa existente |
-| C3 | Validar pacote, registrar metadados de recepção, enfileirar leitura, conectar ao Wi-Fi e enviar ao servidor |
+| Transmissor C3 | Coletar vibração, calcular indicadores, transmitir telemetria e sinal bruto, executar configuração e comandos |
+| Gateway S3 | Validar quadros, registrar metadados de recepção, gravar em flash, conectar ao Wi-Fi, enviar ao servidor e repassar configuração |
 | API Go | Autenticar gateway/usuário, validar contrato, persistir, evitar duplicação por reenvio e servir consultas |
 | PostgreSQL | Guardar cadastro de motores, dispositivos, gateways, medições e eventos |
 | Go do Wails | Cliente da API, sessão do usuário, atualização periódica, cancelamento de requisições e exportação |
@@ -39,11 +46,11 @@ O código Go do desktop chama a API por um cliente HTTP com timeout e contexto. 
 - **Servidor:** Go com `net/http`, validação explícita e camadas pequenas de serviço/repositório.
 - **Persistência central:** PostgreSQL, com migrações SQL versionadas.
 - **Gateway:** manter Arduino/PlatformIO e acrescentar Wi-Fi, cliente HTTPS e fila; sem migrar o firmware inteiro para outro SDK.
-- **Desenvolvimento:** servidor e banco locais para testes de contrato; posteriormente, endpoint HTTPS público para validar o percurso pela internet.
+- **Servidor:** API e banco locais, no Mac de campo, instalados como serviço por `scripts/install-launchagent.sh`.
 
 ## Contrato gateway → servidor
 
-O pacote LoRa continua v2/21 bytes. O C3 acrescenta metadados ao converter a leitura para JSON. O contrato HTTP tem sua própria versão, independente da versão LoRa.
+O gateway acrescenta metadados ao converter a leitura para JSON. O contrato HTTP tem sua própria versão, independente da versão LoRa. O pacote atual é o v3, descrito na [especificação](comando-e-coleta.md); o v2 de 21 bytes continua aceito, e o exemplo abaixo é desse formato.
 
 Exemplo ilustrativo de uma requisição:
 
@@ -73,14 +80,14 @@ Exemplo ilustrativo de uma requisição:
 }
 ```
 
-O valor de CRC é apenas ilustrativo. Pacotes sem CRC válido não entram no caminho de medições; sua rejeição aparece nos contadores do gateway. A API valida tipos, versão, estados conhecidos, números finitos e limites de lote; não confia apenas na validação do C3.
+O valor de CRC é apenas ilustrativo. Pacotes sem CRC válido não entram no caminho de medições; sua rejeição aparece nos contadores do gateway. A API valida tipos, versão, estados conhecidos, números finitos e limites de lote; não confia apenas na validação do gateway.
 
 ### Valores ausentes e limites do pacote atual
 
 - Converter NaN para `null` no JSON, sem substituir por zero.
 - `UNKNOWN` significa classificação indisponível; não equivale a motor normal.
 - `diag=OK` significa ausência de erro reportado no ciclo; não valida o modelo para o motor.
-- O pacote atual transmite RMS e temperatura. Curtose, fator de crista, frequência dominante e forma de onda **não chegam ao desktop**. Mostrar esses dados exigirá uma evolução explícita do protocolo LoRa.
+- O pacote v2 transmite só RMS e temperatura. O v3 acrescenta curtose, fator de crista e frequência dominante, e a forma de onda chega em janelas separadas.
 - RMS em g é aceleração; não apresentar como velocidade em mm/s ou comparar diretamente com limites de velocidade.
 
 ### Identidade, sequência e horário
@@ -91,22 +98,20 @@ O valor de CRC é apenas ilustrativo. Pacotes sem CRC válido não entram no cam
 
 O gateway tem identidade cadastrada e uma sessão nova a cada boot, gerada com UUID aleatório em minúsculas. `event_seq` incrementa por pacote validado, dentro dessa sessão. A chave `(gateway_id, gateway_session_id, event_seq)` identifica o evento de recepção e permanece igual em todas as tentativas de envio desse evento.
 
-O servidor registra `ingested_at` em UTC. O C3 sincroniza relógio por NTP quando disponível; `gateway_received_at` fica `null` se o relógio não era confiável na recepção. A tela distingue horário de recepção no gateway de horário de chegada ao servidor: nenhum deles deve ser rotulado como horário exato de aquisição no motor.
+O servidor registra `ingested_at` em UTC. O gateway acerta o relógio pela sincronização com a API; `gateway_received_at` fica `null` se o relógio não era confiável na recepção. A tela distingue horário de recepção no gateway de horário de chegada ao servidor: nenhum deles deve ser rotulado como horário exato de aquisição no motor.
 
-`upload_uptime_ms - gateway_rx_uptime_ms` informa o atraso na fila na mesma sessão. Esse atraso evita que uma leitura antiga reenviada após queda da internet seja apresentada como medição fresca. Timestamps monotônicos devem usar contador de 64 bits e não atravessar resets.
+`upload_uptime_ms - gateway_rx_uptime_ms` informa o atraso na fila na mesma sessão. Esse atraso evita que uma leitura antiga reenviada após queda da rede seja apresentada como medição fresca. Timestamps monotônicos devem usar contador de 64 bits e não atravessar resets.
 
-## Entrega e reconexão no C3
+## Entrega e reconexão no gateway
 
-1. A tarefa de rádio valida a leitura e a coloca em uma fila limitada.
+1. A tarefa de rádio valida a leitura e a grava em flash antes de enviar.
 2. Uma tarefa de rede consome a fila e envia lotes de até 8 leituras por HTTPS, com timeout e retentativas espaçadas.
 3. O servidor confirma os eventos somente depois de persistir a transação.
-4. O C3 remove apenas os eventos confirmados. Se uma resposta se perder, envia os mesmos identificadores novamente; a API reconhece duplicatas sem criar novas medições.
+4. O gateway remove apenas os eventos confirmados. Se uma resposta se perder, envia os mesmos identificadores novamente; a API reconhece duplicatas sem criar novas medições.
 
-O acesso SPI fica restrito à tarefa do rádio. Wi-Fi, TLS e requisições HTTP não rodam dentro da ISR nem bloqueiam o loop de recepção. O C3 tem um núcleo; separar tarefas exige verificar latência, memória e watchdog com rádio e internet ativos simultaneamente.
+O acesso SPI fica restrito à tarefa do rádio. Wi-Fi, TLS e requisições HTTP não rodam dentro da ISR nem bloqueiam o loop de recepção. Depois de um reinício, o que ficou em flash segue com `previous_session`, sem atraso de fila calculado.
 
-Proposta inicial: fila em RAM de 64 leituras, com contador de descartes e ocupação no heartbeat. Ao encher, descartar a leitura mais antiga e registrar a perda. A capacidade é uma hipótese de implementação, sujeita à medição de RAM com TLS. A aproximadamente 11 s por sensor, 64 leituras cobrem cerca de 12 minutos para um sensor, mas só cerca de 70 segundos para dez sensores nesse ritmo. Reset perde a fila em RAM. Persistência em flash para interrupções longas será uma etapa posterior, com orçamento de desgaste e espaço.
-
-A confirmação HTTP cobre **gateway → servidor**. Ela não cria confirmação ou retransmissão no trecho **S3 → gateway**, que continua sendo LoRa sem ACK.
+A confirmação HTTP cobre **gateway → servidor**. O trecho **transmissor → gateway** tem a resposta do ciclo e o mapa da rajada, descritos na [especificação](comando-e-coleta.md).
 
 ## API inicial
 
@@ -121,7 +126,7 @@ A confirmação HTTP cobre **gateway → servidor**. Ela não cria confirmação
 | `GET /api/v1/gateways` | Consultar última atividade e saúde dos gateways |
 | `GET /api/v1/events` | Consultar eventos técnicos e alertas registrados |
 
-O gateway usa credencial própria com permissão apenas de ingestão; a API confere que `gateway_id` corresponde à credencial. O desktop usa sessão de usuário com permissões de consulta/cadastro. HTTPS com validação de certificado é requisito do percurso pela internet. Credenciais ficam fora do repositório e dos logs; nenhuma credencial de banco vai no C3 ou no desktop.
+O gateway usa credencial própria com permissão apenas de ingestão; a API confere que `gateway_id` corresponde à credencial. O desktop usa sessão de usuário com permissões de consulta/cadastro. O gateway fala por HTTPS e fixa o certificado pela impressão digital. Credenciais ficam fora do repositório e dos logs; nenhuma credencial de banco vai no firmware ou no desktop.
 
 ## Modelo de dados
 
@@ -140,7 +145,7 @@ O frontend do Wails deve funcionar como área de trabalho: navegação lateral,
 barra de comandos compacta, painéis ajustados à janela e barra de estado.
 A rolagem pertence às listas e aos painéis, sem rolagem global de página.
 No macOS, manter os controles nativos da janela e integrar o cabeçalho à barra
-superior. Áreas de trabalho acessíveis pelo menu nativo e por Ctrl/⌘ + 1 a 6.
+superior. Áreas de trabalho acessíveis pelo menu nativo e por Ctrl/⌘ + 1 a 9 e 0.
 A referência local de organização da interface é o projeto TERRA-Open-Energy;
 a direção visual industrial continua baseada nas imagens fornecidas.
 
@@ -167,31 +172,27 @@ packages/
   contracts/              # DTOs Go e exemplos de contrato HTTP
 deploy/
   compose.yaml            # Ambiente local de API + PostgreSQL
-src/receiver/             # Firmware C3: rádio + fila + transporte HTTPS
+                          # O firmware fica no repositório kaelix-firmware
 ```
 
 O servidor importa DTOs Go compartilhados em `packages/contracts`; o cliente do
 desktop utiliza o mesmo contrato pelo backend Go do Wails. Migrações centrais ficam embutidas
-em `apps/server/internal/store/migrations`. O frontend usa bindings gerados pelo Wails; testes de contrato verificam o JSON emitido pelo C3. Dependências Go/TypeScript ficam separadas do projeto Python de treinamento já existente.
+em `apps/server/internal/store/migrations`. O frontend usa bindings gerados pelo Wails; testes de contrato verificam o JSON emitido pelo gateway. Dependências Go/TypeScript ficam separadas do projeto Python de treinamento já existente.
 
 ## Etapas e critérios de aceite
 
-1. **Contrato e API:** fixture baseada em pacote v2 real; persistência; autenticação; reenvio idempotente; `null` e `UNKNOWN` preservados.
-2. **Desktop:** cadastro, últimas leituras, histórico e exportação com dados simulados pela API; interface responsiva ao desconectar o servidor.
-3. **Gateway Wi-Fi:** envio HTTPS, fila, confirmação e reconexão, mantendo os logs USB de diagnóstico.
-4. **Integração local:** leitura real S3 → C3 → API → banco → desktop, com desktop fechado durante parte da coleta.
-5. **Integração pela internet:** endpoint público HTTPS, C3 em Wi-Fi e desktop acessando de outra rede.
-6. **Ensaios:** dez IDs simulados, carga compatível com o intervalo escolhido, queda de Wi-Fi/API, resposta perdida, reset e fila cheia; medir entrega, latência e descartes.
-7. **Distribuição:** build e instalação do Wails nos sistemas alvo, preservando versão e configuração do endpoint.
-
-A camada de internet não corrige as falhas SPI observadas anteriormente. Monitorar sua recorrência e medir a recepção com Wi-Fi/TLS ativos fazem parte do aceite da integração.
+1. **Contrato e API:** persistência, autenticação, reenvio idempotente, `null` e `UNKNOWN` preservados.
+2. **Desktop:** cadastro, últimas leituras, histórico e exportação; interface responsiva ao desconectar o servidor.
+3. **Comando e coleta:** configuração, comandos, janelas, coletas e pareamento sem cabo, conforme a [especificação](comando-e-coleta.md).
+4. **Integração em campo:** transmissor → gateway → API → banco → desktop, com o desktop fechado durante parte da coleta.
+5. **Ensaios:** queda de Wi-Fi e da API, resposta perdida, reinício e fila cheia; medir entrega, latência e descartes.
 
 ## Fontes técnicas consultadas
 
 - [Wails: arquitetura e bindings Go/JavaScript](https://wails.io/docs/howdoesitwork/).
 - [Wails: suporte e funcionalidades](https://wails.io/docs/introduction/).
 - [Go: cliente e servidor HTTP](https://pkg.go.dev/net/http).
-- [Espressif: cliente HTTP/HTTPS no ESP32-C3](https://docs.espressif.com/projects/esp-idf/en/stable/esp32c3/api-reference/protocols/esp_http_client.html). Referência de capacidades do chip/SDK; o projeto atual usa Arduino e sua integração será feita sem mudança de framework.
+- [Espressif: cliente HTTP/HTTPS no ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/protocols/esp_http_client.html). Referência de capacidades do chip/SDK; o projeto usa Arduino, sem mudança de framework.
 
 ## Persistência local implementada
 
@@ -218,13 +219,12 @@ Execução, exemplos e limites do contrato estão no [guia da API](../apps/serve
 A tabela “API inicial” acima contém também endpoints previstos: `/events` permanece
 pendente. Cadastro de dispositivos e rotação de credenciais estão detalhados no guia.
 O frontend utiliza o cliente Go da API, com sessão autenticada e consultas reais.
-A implantação HTTPS pública e a validação fora da LAN continuam pendentes.
 
-### Alinhamento com o contrato do firmware C3
+### Alinhamento com o contrato do firmware
 
 A fronteira de ingestão adota o contrato em
-`kaelix-firmware/docs/contracts/gateway-v1`, copiado sem alterações para
-`packages/contracts/gateway-v1` neste repositório. Estados de protocolo são
+`kaelix-firmware/docs/contracts/gateway-v1`, copiado para
+`packages/contracts/gateway-v1` neste repositório e estendido pela especificação. Estados de protocolo são
 `NORMAL`, `ANOMALOUS` e `UNKNOWN`; sequência do sensor é uint32. Confirmações
 versionadas usam `acknowledged` com `stored`/`duplicate`; erros incluem código,
 `retryable` e detalhes. Ingestão limita corpo a 32 KiB e rejeita chaves duplicadas.

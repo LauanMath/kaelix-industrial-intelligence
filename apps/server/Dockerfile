@@ -8,9 +8,9 @@ COPY apps/server .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /api ./cmd/api
 
 FROM alpine:3.23
-RUN apk add --no-cache ca-certificates && adduser -D -u 10001 kaelix
+RUN apk add --no-cache ca-certificates && adduser -D -u 10001 kaelix && install -d -o kaelix -m 700 /data
 USER kaelix
 COPY --from=build /api /usr/local/bin/api
-ENV API_ADDR=0.0.0.0:8080
-EXPOSE 8080
+ENV API_ADDR=0.0.0.0:8080 API_GATEWAY_ADDR=0.0.0.0:8443 API_DATA_DIR=/data
+EXPOSE 8080 8443
 ENTRYPOINT ["/usr/local/bin/api"]

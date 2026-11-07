@@ -36,8 +36,7 @@ func (s *Store) Ingest(ctx context.Context, b c.ReadingBatch) (c.IngestResult, e
 		if err != nil {
 			return out, err
 		}
-		delay := b.UploadUptimeMS - r.GatewayRxUptimeMS
-		received := estimatedReception(now, delay, r.GatewayReceivedAt)
+		received, delay := receptionFor(now, b.PreviousSession, b.UploadUptimeMS, r.GatewayRxUptimeMS, r.GatewayReceivedAt)
 		status := "stored"
 		var id int64
 		err = tx.QueryRow(ctx, `INSERT INTO readings(gateway_id,gateway_session_id,event_seq,device_id,ingested_at,estimated_received_at,queue_delay_ms,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(gateway_id,gateway_session_id,event_seq) DO NOTHING RETURNING id`, b.GatewayID, b.GatewaySessionID, r.EventSeq, r.DeviceID, now, received, delay, payload).Scan(&id)
@@ -51,6 +50,8 @@ func (s *Store) Ingest(ctx context.Context, b c.ReadingBatch) (c.IngestResult, e
 			}
 			status = "duplicate"
 		} else if err != nil {
+			return out, err
+		} else if err = applyTelemetry(ctx, tx, b.GatewaySessionID, b.PreviousSession, r, now); err != nil {
 			return out, err
 		}
 		out.Acknowledged = append(out.Acknowledged, c.Acknowledgement{EventSeq: r.EventSeq, Status: status})
@@ -164,9 +165,23 @@ func (s *Store) History(ctx context.Context, device string, f HistoryFilter) (c.
 	return page, nil
 }
 
-func (s *Store) RecentReadings(ctx context.Context)([]c.Measurement,error){
- rows,err:=s.pool.Query(ctx,`SELECT id,gateway_id,gateway_session_id,payload,ingested_at,estimated_received_at,queue_delay_ms FROM readings ORDER BY ingested_at DESC,id DESC LIMIT 50`);if err!=nil{return nil,err};defer rows.Close()
- out:=[]c.Measurement{}
- for rows.Next(){var m c.Measurement;var raw []byte;if err=rows.Scan(&m.ID,&m.GatewayID,&m.GatewaySessionID,&raw,&m.IngestedAt,&m.EstimatedReceivedAt,&m.QueueDelayMS);err!=nil{return nil,err};if err=json.Unmarshal(raw,&m.Reading);err!=nil{return nil,err};out=append(out,m)}
- return out,rows.Err()
+func (s *Store) RecentReadings(ctx context.Context) ([]c.Measurement, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,gateway_id,gateway_session_id,payload,ingested_at,estimated_received_at,queue_delay_ms FROM readings ORDER BY ingested_at DESC,id DESC LIMIT 50`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []c.Measurement{}
+	for rows.Next() {
+		var m c.Measurement
+		var raw []byte
+		if err = rows.Scan(&m.ID, &m.GatewayID, &m.GatewaySessionID, &raw, &m.IngestedAt, &m.EstimatedReceivedAt, &m.QueueDelayMS); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(raw, &m.Reading); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }

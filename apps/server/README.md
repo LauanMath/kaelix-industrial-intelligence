@@ -15,8 +15,9 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml up --build -d
 curl --fail http://127.0.0.1:8080/readyz
 ```
 
-O Compose cria API + PostgreSQL 18 com volume persistente. Por padrão, portas publicadas
-em loopback: API 8080 e banco 5432. A API permite configurar outra interface
+O Compose cria API + PostgreSQL 18 com volumes persistentes. Por padrão, portas publicadas
+em loopback: API 8080 e 8443, banco 5432. Dentro do contêiner não há `dns-sd`: o anúncio por
+mDNS só existe no serviço nativo do macOS. A API permite configurar outra interface
 com `API_BIND_ADDRESS`; o banco permanece em loopback. A senha do banco deve ser aleatória e compatível
 com URL (por exemplo, gerada por `openssl rand -hex 24`). Não versionar `.env`.
 A imagem oficial do PostgreSQL 18 usa o volume em `/var/lib/postgresql`;
@@ -28,7 +29,9 @@ Requer Go 1.26.6+ e PostgreSQL 16+ acessível. Crie uma base dedicada e configur
 
 ```sh
 export DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:5432/kaelix?sslmode=disable'
-export API_ADDR='127.0.0.1:8080'
+export API_ADDR='127.0.0.1:8080'           # HTTP, todas as rotas, para o desktop
+export API_GATEWAY_ADDR='0.0.0.0:8443'     # HTTPS, só gateway e /healthz, para a rede local
+export API_DATA_DIR="$HOME/Library/Application Support/Kaelix/api"
 export API_ADMIN_EMAIL='admin@example.com'
 # Defina API_ADMIN_PASSWORD no ambiente: 12 a 72 bytes.
 cd apps/server
@@ -42,22 +45,52 @@ O binário pode ser construído com `go build -o api ./cmd/api`.
 
 `API_ADMIN_EMAIL` e `API_ADMIN_PASSWORD` criam a conta administrativa inicial;
 uma conta existente mantém sua senha. Ambos podem ser removidos do ambiente nos
-próximos startups. A senha usa bcrypt; sessões aleatórias expiram em 24 horas e
-somente seu SHA-256 é armazenado. O perfil SQLite do desktop permanece independente.
+próximos startups. A senha usa bcrypt; sessões aleatórias expiram em 30 dias, porque o
+aplicativo é usado em campo, e somente seu SHA-256 é armazenado. O perfil SQLite do desktop permanece independente.
 Esta versão tem acesso administrativo a uma instalação; não implementa organizações
 ou permissões por local. Login permite até dez tentativas por minuto/IP/instância,
 sem confiar em cabeçalhos encaminhados. Atrás de proxy, aplicar também limite de
 login na borda para os IPs originais.
 
-HTTP local serve ao desenvolvimento. Para internet, colocar a API atrás de um
-proxy HTTPS e usar PostgreSQL com TLS (`sslmode=verify-full`). O gateway deve
-validar o certificado do endpoint. Banco e credenciais não são distribuídos ao desktop.
+### Dois endereços
+
+A especificação do enlace está em [Comando e coleta sem cabo](../../docs/comando-e-coleta.md).
+
+- `API_ADDR` (padrão `127.0.0.1:8080`): HTTP, todas as rotas, para o desktop neste computador.
+- `API_GATEWAY_ADDR` (padrão `0.0.0.0:8443`): HTTPS, só as rotas de gateway e `/healthz`, para a
+  rede local. Rotas de usuário respondem 404 aqui. Conexões ficam abertas por até 3 minutos sem
+  uso, para o gateway não repetir o handshake a cada sincronização. TLS 1.2 ou mais novo, HTTP/1.1.
+- `API_WEB_ADDR` (vazio por padrão, desligado): HTTPS com a página de coleta, para acompanhar pelo
+  celular na rede local (`https://IP:8444`). Só expõe login, leituras, coletas e a configuração do
+  transmissor; rotas de gateway, credenciais e firmware respondem 404. O certificado é próprio
+  (`web-tls.crt`, `web-tls.key`), válido por 800 dias e renovado sozinho, porque nada o fixa. O
+  navegador mostra um aviso na primeira visita, por ser autoassinado.
+- `API_DATA_DIR` (padrão `~/Library/Application Support/Kaelix/api`) guarda o certificado
+  autoassinado ECDSA P-256 (`gateway-tls.crt`, `gateway-tls.key`), gerado na primeira execução e
+  reutilizado, e `secret.key` (0600), a chave AES-GCM das senhas de Wi-Fi. O gateway fixa a impressão
+  digital do certificado: apagar essa pasta exige parear todos os gateways de novo, e perder
+  `secret.key` exige digitar as senhas de Wi-Fi outra vez. Faltando só metade do par, a API não
+  inicia, em vez de gerar um certificado novo em silêncio.
+- Enquanto roda, a API anuncia `_kaelix._tcp` na porta do gateway com `dns-sd -R`. Sem `dns-sd`,
+  registra um aviso e continua. Para conferir: `dns-sd -B _kaelix._tcp`.
+
+Senhas de Wi-Fi nunca vão ao desktop nem aos logs; só o gateway autenticado as recebe, em
+`POST /gateway/sync`. Banco e credenciais não são distribuídos ao desktop.
+
+### Serviço no macOS
+
+`scripts/install-launchagent.sh` instala `deploy/launchd/com.kaelix.api.plist.template` como
+LaunchAgent (`RunAtLoad`, `KeepAlive`), com a API sob `caffeinate -s`, para o Mac não dormir na
+tomada, e confere se há um PostgreSQL do Homebrew em execução. O ambiente vem de
+`deploy/.env.service`, copiado de `deploy/.env.example`, e fica em 0600 fora do plist. O firewall do
+macOS precisa aceitar conexões na porta 8443.
 
 ## Endpoints
 
 Todos os caminhos abaixo usam o prefixo `/api/v1`. Respostas usam JSON, exceto logout.
 Métodos com corpo exigem `Content-Type: application/json`, limite de 64 KiB e
-campos conhecidos. Nas rotas de ingestão, o limite é **32 KiB**, sem JSON comprimido.
+campos conhecidos. Nas rotas de ingestão, o limite é **32 KiB** (**128 KiB** em
+`/ingest/waveforms`), sem JSON comprimido.
 Chaves duplicadas em qualquer profundidade e documentos extras são rejeitados.
 O formato de erro é versionado e inclui `code`, `message`, `retryable` e `details`;
 veja [error-response.schema.json](../../packages/contracts/gateway-v1/error-response.schema.json).
@@ -77,6 +110,20 @@ veja [error-response.schema.json](../../packages/contracts/gateway-v1/error-resp
 | POST | `/gateways/{id}/rotate-token` | Usuário | Nova credencial; revoga anterior |
 | POST | `/ingest/readings` | Gateway | Confirma lote persistido / duplicatas |
 | POST | `/ingest/heartbeat` | Gateway | Persiste saúde e confirma recebimento |
+| POST | `/ingest/logs` | Gateway | Persiste diagnóstico e confirma |
+| POST | `/ingest/waveforms` | Gateway | Grava uma janela de sinal bruto; idempotente |
+| POST | `/gateway/sync` | Gateway | Relógio, configuração, comandos e firmware a repassar |
+| GET | `/gateway/firmware/{id}` | Gateway | Binário do firmware; aceita `Range` |
+| GET / PUT | `/devices/{id}/config` | Usuário | Configuração desejada, versão relatada, estado e horários |
+| GET / POST | `/devices/{id}/commands` | Usuário | Lista / cria comandos, com estado |
+| GET | `/devices/{id}/waveforms` | Usuário | Janelas sem amostras: `from`, `to`, `cursor`, `limit` |
+| GET | `/waveforms/{id}` | Usuário | Janela completa, com `samples_b64` |
+| GET / PUT | `/gateways/{id}/config` | Usuário | Configuração do gateway; nunca devolve senha |
+| GET / POST | `/gateways/{id}/firmware` | Usuário | Estado da atualização / envia o binário |
+| GET / POST | `/collections` | Usuário | Lista / inicia coleta |
+| PUT | `/collections/{id}` | Usuário | Substitui os campos; `ended_at` encerra |
+| GET | `/collections/{id}/summary` | Usuário | Leituras, janelas, lacunas, fragmentos, RSSI e SNR |
+| GET | `/tls/fingerprint` | Usuário | Impressão digital para a configuração inicial |
 
 `GET /healthz` verifica processo; `GET /readyz` também verifica banco (503 se indisponível).
 Sessões de usuário e tokens de gateway são separados: um não acessa as rotas do outro.
@@ -116,18 +163,19 @@ curl --fail-with-body 'http://127.0.0.1:8080/api/v1/motors/M-01/readings?limit=1
   -H "Authorization: Bearer $USER_TOKEN"
 ```
 
-O contrato adotado é o do firmware C3: um snapshot sem alterações dos schemas e
-exemplos está em [packages/contracts/gateway-v1](../../packages/contracts/gateway-v1).
+Os schemas e exemplos estão em
+[packages/contracts/gateway-v1](../../packages/contracts/gateway-v1).
 `testdata/readings-v1.json` é a mesma fixture de leitura fornecida pelo firmware;
 fixtures não comprovam integração física. A API não reconstrói o CRC a partir do
-JSON: o C3 deve validar o quadro LoRa de 21 bytes antes de enviar.
+JSON: o gateway valida o quadro LoRa antes de enviar.
 
-Versões: JSON `schema_version: 1`, LoRa `packet_version: 2`. Estados: `NORMAL`,
+Versões: JSON `schema_version: 1`, LoRa `packet_version` 2 ou 3. Estados: `NORMAL`,
 `ANOMALOUS`, `UNKNOWN` (nenhum `ATTENTION` no protocolo). `device_sequence` e
 `event_seq` usam uint32; `diag_code` aceita todo uint8, preservando códigos desconhecidos;
 `packet_crc16` usa uint16. RMS finito não negativo; `null` somente com `UNKNOWN`.
 Temperatura pode ser `null`; RSSI/SNR precisam ser finitos, sem faixas extras impostas
-pelo servidor. Todos os campos são obrigatórios, inclusive os anuláveis.
+pelo servidor. Os campos do pacote v2 são obrigatórios, inclusive os anuláveis. Os campos
+acrescentados pelo pacote v3 são opcionais, e nulos ou ausentes no v2.
 Timestamps do gateway devem ser RFC3339 UTC terminados em `Z` ou `null`.
 
 Um dispositivo recebido sem cadastro é criado automaticamente, com `motor_id: null`.
@@ -167,7 +215,7 @@ o atraso original permanece armazenado, sem overflow nem data recente artificial
 Última leitura e histórico usam recepção estimada e ID, mantendo estimativas
 indisponíveis no final. Um filtro por período não inclui datas indetermináveis.
 
-### Erros para o C3
+### Erros para o gateway
 
 | HTTP | Código | Repetir? |
 |---|---|---|
@@ -246,7 +294,7 @@ UUIDs aleatórios não codificam a ordem de boot. Uma sessão antiga **nunca ant
 vista pelo servidor** não pode ser identificada como antiga somente pelo UUID;
 a política usa a ordem da primeira recepção no servidor. Ordenação garantida nesse
 caso exige evolução coordenada do contrato (contador persistente de boot ou
-ativação explícita), não inferência pelo UUID. Conforme o contrato do C3, não
+ativação explícita), não inferência pelo UUID. Conforme o contrato do gateway, não
 enviar backlog de heartbeat ao reconectar.
 
 A migração `002_gateway_contract.sql` mantém cadastros e medições existentes;
@@ -270,75 +318,70 @@ go build ./cmd/api
 O script executa `go test -race -count=1 ./...` contra PostgreSQL real. Cobre login,
 permissões, rotação/logout, cadastro, sensores não associados, nulos, reenvios,
 concorrência, conflitos com rollback, paginação/período, sessões e heartbeats
-atrasados, migrações e reabertura. Fixtures e respostas reais são verificadas
-contra os JSON Schemas draft 2020-12 do firmware, com formatos habilitados;
+atrasados, migrações e reabertura, versões e estados de configuração, faixas e ciclo mínimo, janelas,
+`previous_session`, sincronização, senhas cifradas, firmware, coletas e o HTTPS recusando rotas de usuário. Fixtures e respostas reais são verificadas
+contra os JSON Schemas draft 2020-12 do contrato, com formatos habilitados;
 limites uint32/safe integer, chaves duplicadas e corpo de 32 KiB são exercitados. Sem `TEST_DATABASE_URL`, `go test ./...` executa testes de validação e
 marca testes de integração como skipped. O runner local foi validado com PostgreSQL 16.
 
-## Próximas integrações
+## Comando e coleta
 
-A API/banco central e o cliente do desktop estão implementados. O Wails consulta
-cadastros, últimas leituras, histórico, saúde de gateways e recepções reais por
-`/readings/recent`, com autenticação e atualização periódica. O fluxo C3 → API →
-PostgreSQL está ativo na bancada. Eventos derivados (alertas, perda de sequência)
-e publicação HTTPS pública permanecem em etapas separadas. Nenhum endpoint
-`/events` é anunciado como pronto.
+A [especificação](../../docs/comando-e-coleta.md) define os formatos; aqui ficam as decisões do
+servidor.
 
-## Bancada C3 pela LAN neste Mac
+**Versões.** A API atribui `version` e ignora a que o cliente envia. Salvar o mesmo conteúdo não é
+uma alteração e mantém a versão. A versão nova fica acima da relatada pelo aparelho, para não
+parecer aplicada antes de ser enviada, e volta a 1 depois de 65535. Campo ausente num `PUT` recebe o
+padrão da especificação, nunca zero.
 
-A API nativa foi iniciada em `http://192.168.18.167:8080`, com o PostgreSQL local
-em `127.0.0.1:5432`, base/role dedicados `kaelix_lan`. O banco permanece em loopback.
-Verificar a disponibilidade:
+**Estado.** `applied` só quando a versão relatada pela telemetria é igual à desejada; `radiated`
+quando o gateway informou ter transmitido essa versão; `pending` nos demais casos. Sem configuração
+salva, `config` e `state` são nulos. Um transmissor pode reverter a configuração por perda de enlace:
+uma leitura ao vivo com versão menor tira o estado de `applied`, e a configuração volta a ser enviada.
+Uma leitura de `previous_session` só muda a versão relatada se `boot_count` e `device_sequence`
+mostrarem que é mais nova que a registrada.
+
+**Comandos.** `seq` cresce por dispositivo, de 1 a 65535, sem recomeçar, e fica acima do último
+`command_seq` relatado. Na sincronização vem o comando mais antigo ainda não aplicado, mesmo depois
+de `radiated`: uma resposta perdida no rádio não perde o comando. Uma leitura com `command_seq` maior
+ou igual a `seq` o marca como aplicado. Criar `factory_reset` troca a configuração desejada pelos
+padrões, sempre com versão nova, na mesma transação.
+
+**Intervalo mínimo.** Um `PUT` que não cabe no ciclo responde 422 com `path: cycle_interval_s` e
+`minimum` em `details`. O cálculo está em `packages/contracts/deviceconfig.go`, compartilhado com o
+desktop. Como aquisição e controle somam ao menos 1,68 s, `cycle_interval_s: 1` sempre responde com um
+mínimo de 2 s, embora a faixa comece em 1.
+
+**Janelas.** `samples_b64` precisa decodificar para o tamanho exato, e `fragment_total` para o número
+de fragmentos desse tamanho. A mesma identidade com conteúdo diferente responde 409. Janelas não são
+apagadas: com os padrões, são cerca de 48 MB por dia e por transmissor.
+
+**Sincronização.** Em `devices` vêm todos os dispositivos pendentes, sem filtrar por gateway: cada um
+transmite ao aparelho que ouvir. Uma falha ao abrir as senhas é registrada no log e devolve
+`gateway_config` nulo, sem parar o relógio nem os transmissores.
+
+**Firmware.** `POST /gateways/{id}/firmware?version=...`, com o binário como corpo
+`application/octet-stream`, até 8 MiB, começando pelo byte de imagem ESP32 (0xE9). Um novo envio
+substitui o anterior. A atualização termina quando `firmware_version` chega à versão enviada, ou com
+`ota_result`; depois de uma falha, o binário não é mais oferecido.
+
+**Coletas.** O intervalo vai de `started_at`, inclusive, a `ended_at`, exclusive. Leituras e janelas
+sem horário conhecido, de `previous_session` sem `gateway_received_at`, não entram no intervalo: o
+resumo as conta à parte, pela chegada, em `readings_undated` e `waveforms_undated`.
+
+## Serviço de bancada `com.kaelix.api.lan`
+
+Serviço anterior ao servidor local, com a API em HTTP na rede local e a base `kaelix_lan`, usado pelo
+firmware antigo. Não inicia após reiniciar o Mac. Binário e plist ficam em `.temp/lan-api`; a
+configuração, em `deploy/.env.lan.local`, fora do git. Na raiz do repositório:
 
 ```sh
-curl --noproxy '*' --fail http://192.168.18.167:8080/readyz
-```
-
-Configuração e credenciais administrativas/de banco ficam em
-`deploy/.env.lan.local` (ignorado, permissão 0600). O gateway foi cadastrado pela API;
-seu ID e token foram salvos nesse arquivo e preenchidos diretamente em
-`kaelix-firmware/include/gateway_config.local.h`, também ignorado e privado.
-As configurações de Wi-Fi foram preservadas. No firmware: URL acima,
-`KAELIX_ALLOW_HTTP_LAN=1`, CA vazia e credencial própria do gateway.
-Nenhuma medição de teste foi inserida ao verificar o acesso.
-
-O serviço desta sessão é gerenciado pelo launchd do usuário, com binário,
-configuração de execução e logs em `.temp/lan-api`. Continua ativo após o terminal
-fechar; não foi instalado para iniciar automaticamente após reboot/logout.
-Na raiz deste repositório:
-
-```sh
-# Parar.
 launchctl bootout "gui/$(id -u)/com.kaelix.api.lan"
-
-# Iniciar novamente (após parar ou em uma nova sessão de login).
 launchctl bootstrap "gui/$(id -u)" .temp/lan-api/com.kaelix.api.lan.plist
 ```
-
-Se o IP do Mac mudar, atualizar `API_ADDR` em `deploy/.env.lan.local`, reiniciar o
-serviço e atualizar a URL local do firmware. Mac e C3 precisam estar na mesma LAN;
-a validação feita neste Mac não comprova conectividade física do C3. O firmware
-precisa ser recompilado/gravado para incorporar o header alterado.
-
-Para executar em primeiro plano usando a mesma configuração (com o serviço parado):
-
-```sh
-set -a
-. deploy/.env.lan.local
-set +a
-cd apps/server
-go run ./cmd/api
-```
-
-No Compose, a interface de publicação da API agora é configurável por
-`API_BIND_ADDRESS` em `deploy/.env`, mantendo `127.0.0.1` como padrão. Para bancada,
-definir `API_BIND_ADDRESS=192.168.18.167` e iniciar Compose com o serviço nativo
-parado para liberar 8080. Esse Compose usa seu próprio banco/volume: cadastros e
-credenciais da base nativa não migram automaticamente para o container.
-HTTP LAN é exclusivo desta bancada; a implantação pela internet continua exigindo HTTPS.
 
 ## Logs remotos para o Dev mode
 
 O contrato adicional está em [gateway-logs-v1](../../packages/contracts/gateway-logs-v1). `POST /api/v1/ingest/logs` exige o token do gateway e persiste lotes de até oito linhas de diagnóstico com deduplicação por gateway/sessão/sequência. `GET /api/v1/gateways/{id}/logs?after_id=...&limit=200` exige sessão de usuário e consulta por cursor incremental. Sem cursor, retorna a cauda mais recente. Retenção limitada a 5.000 linhas por gateway; a migração `004_gateway_logs.sql` cria a tabela separada. Logs não criam nem confirmam medições e não substituem o heartbeat como indicador de atividade.
 
-Reiniciar a API com o binário atualizado aplica a migração. Firmware e desktop também precisam das novas versões; antes da gravação do C3, o console permanece sem linhas. Os testes com PostgreSQL real cobrem permissões, nulos/campos obrigatórios, duplicatas, conflitos com rollback, cursor e retenção; o frontend exibe mensagens como texto, sem HTML.
+Reiniciar a API com o binário atualizado aplica a migração. Firmware e desktop também precisam das novas versões; antes da gravação do gateway, o console permanece sem linhas. Os testes com PostgreSQL real cobrem permissões, nulos/campos obrigatórios, duplicatas, conflitos com rollback, cursor e retenção; o frontend exibe mensagens como texto, sem HTML.

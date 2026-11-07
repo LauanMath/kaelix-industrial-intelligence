@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "gateway_id": "5ef49647-9449-4f47-8d1d-c06611c3ba81",
+  "gateway_session_id": "17162ec5-4fe1-4dac-a871-879120324a57",
+  "previous_session": false,
+  "upload_uptime_ms": 13000,
+  "readings": [
+    {
+      "event_seq": 21,
+      "gateway_rx_uptime_ms": 12000,
+      "gateway_received_at": "2026-11-02T04:59:22Z",
+      "packet_version": 3,
+      "device_id": "AB12CD34",
+      "device_sequence": 48,
+      "boot_count": 2,
+      "command_seq": 2,
+      "state": "NORMAL",
+      "diag_code": 0,
+      "rms_g": 0.021,
+      "rms_x_g": 0.012,
+      "rms_y_g": 0.009,
+      "kurtosis": 3.1,
+      "crest_factor": 2.8,
+      "dominant_freq_hz": 59.8,
+      "sample_rate_hz": 999.8,
+      "temperature_c": 31.5,
+      "rssi_dbm": -55.0,
+      "snr_db": 9.5,
+      "packet_crc16": 33642,
+      "config_version": 7,
+      "reset_reason": 1,
+      "flags": 3,
+      "device_time": "2026-11-02T04:59:21Z",
+      "uptime_s": 528,
+      "wave_fragments": 26,
+      "wave_samples": 512,
+      "channels": 63,
+      "tx_power_dbm": 10
+    }
+  ]
+}

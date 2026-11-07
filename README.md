@@ -5,7 +5,7 @@ A interface segue as referências visuais em `.temp`: tema escuro, workflow 2D,
 telemetria lateral e estados de operação em verde e âmbar. A identidade combina
 laranja, grafite e um símbolo geométrico próprio; consulte `docs/identidade-visual.md`. A janela usa uma área de trabalho
 fixa, navegação lateral recolhível, painéis com rolagem independente, barra de estado
-e atalhos Ctrl/⌘ + 1 a 6. No macOS, o cabeçalho integra a barra nativa
+e atalhos Ctrl/⌘ + 1 a 9 e 0. No macOS, o cabeçalho integra a barra nativa
 e o menu Área de trabalho permite trocar de seção. O canvas usa SVG e cards interativos;
 as imagens de referência não são distribuídas na aplicação.
 
@@ -44,15 +44,29 @@ wails build
 - `apps/desktop/internal/apiclient`: cliente HTTP com timeout e cancelamento.
 - `apps/desktop/frontend/src/lib/useWorkspace.ts`: atualização das telas e histórico.
 - `apps/desktop/frontend/src/lib/types.ts`: apresentação do contrato e exportação CSV.
-- `docs/arquitetura-desktop-internet.md`: arquitetura e etapas de integração.
+- `apps/desktop/app_field.go` e `export.go`: gateways, transmissores, coletas, pareamento e exportação.
+- `docs/comando-e-coleta.md`: especificação do enlace com o firmware.
+- `docs/arquitetura-desktop-internet.md`: arquitetura e histórico das etapas.
+
+## Montagem em campo
+
+O computador vai a campo ligado à tomada, na mesma rede Wi-Fi do gateway. O transmissor ESP32-C3 envia
+telemetria e sinal bruto por LoRa ao gateway ESP32-S3, que fala com a API neste Mac pela rede local, sem
+cabo, túnel ou nuvem. A especificação é [Comando e coleta sem cabo](docs/comando-e-coleta.md).
 
 ## Escopo atual
 
 Desktop conectado à API Go: sensores/motores, workflow dinâmico, dashboard,
 saúde dos gateways, últimas recepções, histórico e exportação CSV com horários UTC.
 As telas consultam a API a cada dois segundos, sem requisições de polling sobrepostas;
-a janela oculta pausa consultas. Leituras do C3 já são recebidas e
-persistidas no PostgreSQL da bancada.
+a janela oculta pausa consultas. Leituras do gateway são recebidas e
+persistidas no PostgreSQL deste Mac.
+
+Tudo se configura pelo desktop: **Gateways** mostra estado, rede e fila em flash, com o assistente
+"Adicionar gateway", redes Wi-Fi e envio de firmware. **Transmissores** tem o formulário da
+configuração, o editor da rotina, o estado pendente, enviado ou aplicado, e os comandos. **Coletas**
+inicia e encerra com nome e condição, resume as perdas e exporta tudo para uma pasta. **Sinal** mostra
+cada canal da janela escolhida.
 
 Não há fallback de dados fictícios. API indisponível mantém a última consulta
 identificada como desatualizada; sessão ausente/expirada apresenta a conexão.
@@ -65,14 +79,15 @@ por página e botão para carregar anteriores. O CSV exporta as leituras carrega
 com RMS em g, temperatura em °C, diagnóstico, metadados de recepção e atraso da fila.
 Eventos mostra as últimas 50 recepções reais; alertas derivados não são fabricados.
 
-Em **Configurações**, informar URL/e-mail/senha da conta da API. A senha nunca é
-persistida; sessão e endereço ficam no SQLite privado do usuário até logout ou
-expiração. Tokens de gateway são exclusivos do firmware, não do login desktop.
-Neste Mac, a sessão da bancada foi configurada para `http://192.168.18.167:8080`.
+Em **Configurações**, informar URL/e-mail/senha da conta da API; o endereço padrão é
+`http://127.0.0.1:8080`. A senha nunca é persistida; sessão e endereço ficam no SQLite privado do
+usuário até logout ou expiração de 30 dias. Se o endereço salvo não responder e houver uma API neste
+computador, o aplicativo oferece trocar para ela. Tokens de gateway são exclusivos do firmware, não
+do login desktop.
 
 ## Perfil e banco local
 
-O modal de Perfil (avatar na barra superior ou Ctrl/⌘ + 7) salva nome, e-mail, empresa e cargo em SQLite,
+O modal de Perfil (avatar na barra superior ou Ctrl/⌘ + 0) salva nome, e-mail, empresa e cargo em SQLite,
 com migração automática no startup. O arquivo fica em `Kaelix/kaelix.db`
 dentro de `os.UserConfigDir()`; no macOS, `~/Library/Application Support/Kaelix/`.
 Requisito Go atualizado para 1.26 pelo driver SQLite.
@@ -93,8 +108,10 @@ Servidor independente em `apps/server`, com PostgreSQL, migrações, cadastro de
 motores/dispositivos/gateways, ingestão idempotente e histórico por período/cursor.
 Login administrativo e credenciais individuais de gateway protegem os endpoints.
 
-Consulte [execução e contrato HTTP](apps/server/README.md). O ambiente local está
-em `deploy/compose.yaml`; configure `deploy/.env` a partir de `.env.example`.
+Consulte [execução e contrato HTTP](apps/server/README.md). A API escuta em HTTP só neste computador,
+para o desktop, e em HTTPS na rede local, só com as rotas de gateway. No Mac de campo, instale o serviço
+com `scripts/install-launchagent.sh`. O ambiente em contêiner está em `deploy/compose.yaml`; configure
+`deploy/.env` a partir de `.env.example`.
 Para verificar com um PostgreSQL temporário, execute:
 
 ```sh
