@@ -148,3 +148,12 @@ docs/                 especificação do enlace, arquitetura, identidade visual 
 - Só o gateway recebe firmware sem cabo; o transmissor é atualizado por cabo.
 - A página de coleta usa certificado autoassinado, e o navegador do celular mostra um aviso na primeira visita.
 - O serviço da API é um LaunchAgent: depois de um reinício, só volta quando alguém faz login no Mac.
+
+## Licença
+
+O código está sob a licença MIT ([LICENSE](LICENSE)). Os dados da coleta em campo e os resultados das análises ficam no repositório `kaelix-firmware`, sob a licença Creative Commons Atribuição 4.0 Internacional.
+
+Mantêm a licença de origem:
+
+- as fontes Inter, JetBrains Mono e Space Grotesk, em `apps/desktop/frontend/public/fonts/`, e Nunito, em `apps/desktop/frontend/src/assets/fonts/`, sob a SIL Open Font License 1.1, com o texto ao lado de cada fonte;
+- os arquivos do modelo do Wails: `apps/desktop/frontend/wailsjs/`, gerado por ele, os modelos de empacotamento em `apps/desktop/build/darwin/` e `apps/desktop/build/windows/` (os ícones são do Kaelix) e `apps/desktop/frontend/src/assets/images/logo-universal.png`, sob a licença MIT do projeto Wails.
