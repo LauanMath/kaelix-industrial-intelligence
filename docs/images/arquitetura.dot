@@ -1,0 +1,55 @@
+// Arquitetura do Kaelix em campo.
+// Gerar: dot -Tsvg docs/images/arquitetura.dot -o docs/images/arquitetura.svg
+// Ligações: tracejada vermelho-alaranjada = rádio LoRa; contínua azul = rede local;
+// pontilhada cinza = dentro do computador. A seta parte de quem inicia a comunicação.
+// Os rótulos são nós de texto, porque o traçado ortogonal não posiciona rótulos de aresta.
+// Portas: padrões de API_ADDR e API_GATEWAY_ADDR, e o valor de API_WEB_ADDR em deploy/.env.example.
+digraph kaelix {
+  graph [rankdir=TB, splines=ortho, nodesep=0.35, ranksep=0.32, pad=0.3, bgcolor="white",
+         fontname="Helvetica", fontsize=11, newrank=true]
+  node  [shape=box, style=filled, fillcolor="white", color="black", penwidth=1,
+         fontname="Helvetica", fontsize=11, margin="0.18,0.10"]
+  edge  [arrowsize=0.7, penwidth=1.2]
+
+  // Rótulos das ligações.
+  node [shape=plaintext, style="", margin="0.04,0.02", fontsize=9]
+  up    [group=main, label="telemetria e\nsinal bruto", fontcolor="#D55E00"]
+  down  [label="confirmação,\nconfiguração\ne comandos", fontcolor="#D55E00"]
+  https [group=main, label="HTTPS :8443\nrotas de gateway", fontcolor="#0072B2"]
+  web   [label="HTTPS :8444", fontcolor="#0072B2"]
+  local [label="HTTP\n127.0.0.1:8080", fontcolor="#555555"]
+  node [shape=box, style=filled, margin="0.18,0.10", fontsize=11]
+
+  c3    [group=main, label="Transmissor\nESP32-C3 e sensor inercial\naté 6 canais a 1 kHz"]
+  s3    [group=main, label="Gateway\nESP32-S3\nfila em flash"]
+  phone [label="Celular\npágina de coleta\n(opcional)"]
+
+  subgraph cluster_pc {
+    label="Computador de campo (macOS)"; labeljust=l; fontname="Helvetica"; fontsize=11
+    style=filled; fillcolor="#F3F3F3"; color="black"; margin=14
+    api [group=main, label="API em Go"]
+    db  [label="PostgreSQL"]
+    app [label="Aplicativo de mesa\n(Wails)"]
+    local
+  }
+
+  c3   -> up    [color="#D55E00", style=dashed, arrowhead=none]
+  up   -> s3    [color="#D55E00", style=dashed]
+  s3   -> down  [color="#D55E00", style=dashed, arrowhead=none, constraint=false]
+  down -> c3    [color="#D55E00", style=dashed, constraint=false]
+
+  s3    -> https [color="#0072B2", arrowhead=none]
+  https -> api   [color="#0072B2"]
+  phone -> web   [color="#0072B2", arrowhead=none]
+  web   -> api   [color="#0072B2"]
+
+  app   -> local [color="#555555", style=dotted, arrowhead=none]
+  local -> api   [color="#555555", style=dotted]
+  api   -> db    [color="#555555", style=dotted]
+
+  { rank=same; up; down }
+  { rank=same; s3; phone }
+  s3 -> phone [style=invis]
+  { rank=same; https; web }
+  { rank=same; app; local; api }
+}

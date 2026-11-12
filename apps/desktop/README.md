@@ -52,3 +52,13 @@ Clique no card do gateway no workflow para abrir o card de logs ao lado da topol
 A consulta ocorre a cada dois segundos, enquanto a janela estiver visível e o console não estiver pausado. O gateway envia lotes de logs a cada cinco segundos, então a visualização tem atraso de rede/lote. A primeira consulta carrega até 200 linhas recentes; a tela mantém até 2.000. Timestamp `+HH:MM:SS.mmm` é tempo desde o boot do gateway; o tooltip e a exportação incluem horário de chegada à API, sessão e sequência. Lacunas na sequência de logs são sinalizadas. A pausa/limpeza não altera medições nem apaga registros no servidor.
 
 Requer API com `/api/v1/gateways/{id}/logs` e firmware do gateway atualizado com `/api/v1/ingest/logs`. Firmware antigo só envia heartbeat e medições; nenhum log serial anterior é reconstruído ou simulado. Logs internos do transmissor e mensagens do ROM não estão no transporte atual. Se a rede cair, só as linhas ainda disponíveis na fila RAM do gateway poderão chegar após reconectar.
+
+## Perfil e banco local
+
+O perfil (avatar na barra superior ou Ctrl/⌘ + 0) guarda nome, e-mail, empresa, cargo e foto num SQLite em
+`Kaelix/kaelix.db`, dentro de `os.UserConfigDir()`; no macOS, `~/Library/Application Support/Kaelix/`. O
+mesmo arquivo guarda a sessão da API e as chaves de administração dos gateways pareados, e as migrações
+rodam na abertura. O perfil é local e não é uma conta da API; nenhuma senha é armazenada.
+
+A foto é escolhida no seletor nativo (PNG ou JPEG até 10 MB) e recortada ao centro em 256 × 256 pixels. Escape ou
+um clique fora fecha o modal.
